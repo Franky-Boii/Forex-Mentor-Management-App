@@ -111,6 +111,24 @@ function renderTicker(){
   el.innerHTML = items.concat(items).concat(items).join('');
 }
 
+/* MODULE COMPLETION COMPONENT LOGIC */
+function toggleModule(studentId, moduleKey) {
+  const s = state.students.find(x => x.id === studentId);
+  if(!s) return;
+  s[moduleKey] = !s[moduleKey];
+
+  let score = 0;
+  if (s.mod1) score += 20;
+  if (s.mod2) score += 20;
+  if (s.mod3) score += 20;
+  if (s.mod4) score += 20;
+  if (s.mod5) score += 20;
+
+  s.progress = score;
+  saveState();
+  openStudentDetail(s.id);
+}
+
 /* =================== 1. DASHBOARD COMPONENT =================== */
 function renderDashboard(){
   const activeStudents = state.students.filter(s=>s.status==='active');
@@ -366,6 +384,17 @@ function openStudentDetail(id){
     </div>
     ${s.notes? `<div class="field"><label>Operational Progress Notes</label><div style="font-size:13px;color:var(--text-dim);background:var(--surface-2);padding:10px;border-radius:6px;">${escapeHtml(s.notes)}</div></div>` : ''}
 
+    <div class="section-title" style="margin-top:20px">Curriculum Syllabus Modules</div>
+    <div class="card" style="background: var(--surface-2); padding: 12px; font-size:12.5px; margin-bottom: 20px;">
+      <div style="display:grid; grid-template-columns: 1fr; gap:10px;">
+        <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" ${s.mod1?'checked':''} onchange="toggleModule('${s.id}', 'mod1')"> Module 1: Market Structure (BOS/CHoCH)</label>
+        <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" ${s.mod2?'checked':''} onchange="toggleModule('${s.id}', 'mod2')"> Module 2: Liquidity Engineering</label>
+        <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" ${s.mod3?'checked':''} onchange="toggleModule('${s.id}', 'mod3')"> Module 3: Advanced Wyckoff Principles</label>
+        <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" ${s.mod4?'checked':''} onchange="toggleModule('${s.id}', 'mod4')"> Assessment 1: Live Demo Simulation</label>
+        <label style="display: flex; align-items: center; gap: 8px;"><input type="checkbox" ${s.mod5?'checked':''} onchange="toggleModule('${s.id}', 'mod5')"> Assessment 2: Funded Challenge Prep</label>
+      </div>
+    </div>
+
     <div class="section-title" style="margin-top:20px">Historical Receipts Ledger</div>
     <div style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
       ${payments.length===0? `<div style="padding:14px;color:var(--text-faint);font-size:13px">No historical transactions verified.</div>` :
@@ -512,10 +541,10 @@ function renderJournal(){
 
   trades.sort((a,b)=>b.date.localeCompare(a.date));
 
-  const wins = trades.filter(t=>t.outcome === 'win' || (!t.outcome && Number(t.pnl)>0));
-  const losses = trades.filter(t=>t.outcome === 'loss' || (!t.outcome && Number(t.pnl)<0));
-  const decided = wins.length+losses.length;
-  const winRate = decided? wins.length/decided*100 : 0;
+  const wins = trades.filter(t=>t.outcome === 'win' || (!t.outcome && Number(t.pnl)>0)).length;
+  const losses = trades.filter(t=>t.outcome === 'loss' || (!t.outcome && Number(t.pnl)<0)).length;
+  const decided = wins+losses;
+  const winRate = decided? wins/decided*100 : 0;
   const totalPnl = trades.reduce((s,t)=>s+Number(t.pnl||0),0);
 
   let bestTrade = 0, worstTrade = 0, totalR = 0;
@@ -554,7 +583,7 @@ function renderJournal(){
     </div>
 
     <div class="grid grid-4">
-      <div class="card stat-card"><div class="label">Win Rate</div><div class="value ${winRate>=50?'up':'down'}">${decided?winRate.toFixed(1):'—'}%</div><div class="sub">${wins.length}W / ${losses.length}L</div></div>
+      <div class="card stat-card"><div class="label">Win Rate</div><div class="value ${winRate>=50?'up':'down'}">${decided?winRate.toFixed(1):'—'}%</div><div class="sub">${wins}W / ${losses}L</div></div>
       <div class="card stat-card"><div class="label">Total P&amp;L Matrix</div><div class="value ${totalPnl>=0?'up':'down'}">${fmtMoney(totalPnl)}</div><div class="sub">${trades.length} total trades logged</div></div>
       <div class="card stat-card"><div class="label">Average R:R Outcome</div><div class="value neutral">${avgRR >= 0 ? '+' : ''}${avgRR.toFixed(2)}R</div><div class="sub">Net cumulative performance</div></div>
       <div class="card stat-card"><div class="label">Extremes (Best/Worst)</div><div class="value" style="font-size:14px;line-height:24px;"><span class="up">Max: ${fmtMoney(bestTrade)}</span><br><span class="down">Min: ${fmtMoney(worstTrade)}</span></div></div>
@@ -694,7 +723,7 @@ function deleteTrade(id){
   saveState(); closeModal(); showToast('Trade deleted'); render();
 }
 
-/* =================== 5. INCOME COMPONENT =================== */
+/* =================== 5. INCOME & CRM PIPELINE COMPONENT =================== */
 function renderIncome(){
   const base = new Date();
   base.setMonth(base.getMonth()+incomeMonthOffset);
@@ -728,6 +757,12 @@ function renderIncome(){
   }
   const maxVal = Math.max(1, ...months.map(m=>m.value));
 
+  // CRM Pipeline State Binding Hook
+  state.leads = state.leads || [];
+  const prospects = state.leads.filter(l => l.stage === 'prospect');
+  const followupList = state.leads.filter(l => l.stage === 'followup');
+  const hotLeads = state.leads.filter(l => l.stage === 'hot');
+
   return `
     <div class="page-head">
       <div><h1>Revenue &amp; Income Analytics</h1><p>Track cash flows, client balances, outstanding collection requirements, and billing health.</p></div>
@@ -744,18 +779,27 @@ function renderIncome(){
       <div class="card stat-card"><div class="label">Total Revenue Generated (All-Time)</div><div class="value up" style="color:var(--blue);">${fmtMoney(grandTotalRevenue)}</div></div>
     </div>
 
-    <div class="section-title">Rolling Historical Receipts (Last 6 Months)</div>
-    <div class="card">
-      <div style="display:flex;align-items:flex-end;gap:14px;height:140px">
-        ${months.map(m=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end">
-          <div class="mono-cell" style="font-size:10.5px;color:var(--text-faint)">${m.value? fmtMoney(m.value).replace('R ','').split(',')[0] : ''}</div>
-          <div style="width:60%;background:var(--blue);border-radius:4px 4px 0 0;height:${Math.max(3,(m.value/maxVal)*100)}px"></div>
-          <div style="font-size:11px;color:var(--text-dim)">${m.label}</div>
-        </div>`).join('')}
+    <div class="page-head" style="margin-top:40px; margin-bottom:10px;">
+      <div><h2>Mentorship Sales Pipeline (CRM)</h2><p>Track interested prospects, active follow-ups, and hot lead conversions.</p></div>
+      <button class="btn btn-primary btn-sm" onclick="openLeadForm()">+ New Lead</button>
+    </div>
+
+    <div class="grid grid-3" style="align-items:start;">
+      <div class="card" style="background:rgba(255,255,255,0.01); border-style:dashed;">
+        <div class="section-title" style="margin-top:0; color:var(--text-dim);">Prospects (${prospects.length})</div>
+        ${prospects.length===0 ? '<div style="padding:10px; color:var(--text-faint); font-size:12px;">No prospects logged</div>' : prospects.map(l => renderLeadCard(l)).join('')}
+      </div>
+      <div class="card" style="background:rgba(255,255,255,0.01); border-style:dashed;">
+        <div class="section-title" style="margin-top:0; color:var(--amber);">Follow-Ups (${followupList.length})</div>
+        ${followupList.length===0 ? '<div style="padding:10px; color:var(--text-faint); font-size:12px;">No active follow-ups</div>' : followupList.map(l => renderLeadCard(l)).join('')}
+      </div>
+      <div class="card" style="background:rgba(255,255,255,0.01); border-style:dashed;">
+        <div class="section-title" style="margin-top:0; color:var(--green);">Hot / Ready (${hotLeads.length})</div>
+        ${hotLeads.length===0 ? '<div style="padding:10px; color:var(--text-faint); font-size:12px;">No hot leads ready</div>' : hotLeads.map(l => renderLeadCard(l)).join('')}
       </div>
     </div>
 
-    <div class="section-title">Breakdown by Individual Student Account</div>
+    <div class="section-title" style="margin-top:40px;">Breakdown by Individual Student Account</div>
     <div class="card" style="${rows.length?'padding:0':''}">
       ${rows.length===0? `<div class="empty-state"><div class="ed">No active accounts detected for this period.</div></div>` :
       `<table><tbody>
@@ -768,4 +812,140 @@ function renderIncome(){
       </tbody></table>`}
     </div>
   `;
+}
+
+function renderLeadCard(lead) {
+  return `
+    <div class="card" style="background: var(--surface-2); margin-bottom:10px; padding:12px; border-left:3px solid var(--blue);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+        <b style="font-size:13px; color:var(--text);">${escapeHtml(lead.name)}</b>
+        <button class="btn btn-ghost" style="padding:2px 6px; font-size:10px;" onclick="openLeadForm('${lead.id}')">Manage</button>
+      </div>
+      <div style="font-size:11px; color:var(--text-dim); margin-top:4px;">${escapeHtml(lead.phone || lead.email || 'No contact details')}</div>
+      ${lead.lastNote ? `<div style="font-size:11px; color:var(--text-faint); background:var(--surface-3); padding:6px; border-radius:4px; margin-top:8px;">"${escapeHtml(lead.lastNote)}"</div>` : ''}
+    </div>
+  `;
+}
+
+function openLeadForm(id) {
+  state.leads = state.leads || [];
+  const l = id ? state.leads.find(x => x.id === id) : null;
+  openModal(`
+    <h3>${l ? 'Manage Pipeline Lead' : 'Log New Mentorship Lead'}</h3>
+    <form id="leadForm">
+      <div class="field"><label>Lead Full Name</label><input type="text" name="name" value="${l ? escapeHtml(l.name) : ''}"></div>
+      <div class="field-row">
+        <div class="field"><label>Phone Number</label><input type="text" name="phone" value="${l ? escapeHtml(l.phone || '') : ''}"></div>
+        <div class="field"><label>Email Address</label><input type="email" name="email" value="${l ? escapeHtml(l.email || '') : ''}"></div>
+      </div>
+      <div class="field"><label>Pipeline Funnel Stage</label>
+        <select name="stage">
+          <option value="prospect" ${l && l.stage === 'prospect' ? 'selected' : ''}>Prospect (Interested Lead)</option>
+          <option value="followup" ${l && l.stage === 'followup' ? 'selected' : ''}>Follow-Up Required</option>
+          <option value="hot" ${l && l.stage === 'hot' ? 'selected' : ''}>Hot / Ready to Convert</option>
+        </select>
+      </div>
+      <div class="field"><label>Latest Follow-up Interaction Note</label><textarea name="lastNote" placeholder="e.g. Sent course outline via WhatsApp...">${l ? escapeHtml(l.lastNote || '') : ''}</textarea></div>
+      <div class="modal-actions" style="justify-content: ${l ? 'space-between' : 'flex-end'}">
+        ${l ? `<button type="button" class="btn btn-danger btn-sm" onclick="state.leads=state.leads.filter(x=>x.id!=='${l.id}');saveState();closeModal();render();showToast('Lead removed');">Delete</button>` : ''}
+        <div style="display:flex; gap:8px;">
+          <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Lead</button>
+        </div>
+      </div>
+    </form>
+  `);
+
+  document.getElementById('leadForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    const name = f.get('name').trim();
+    if(!name) return flagFieldError(e.target.querySelector('[name="name"]'), 'Name required');
+    const data = {
+      name,
+      phone: f.get('phone').trim(),
+      email: f.get('email').trim(),
+      stage: f.get('stage'),
+      lastNote: f.get('lastNote').trim()
+    };
+    if(l) Object.assign(l, data);
+    else state.leads.push(Object.assign({id: uid()}, data));
+    saveState(); closeModal(); render(); showToast('Pipeline synced');
+  });
+}
+
+/* =================== APP CONTROLLER & STATE =================== */
+let state = { students: [], trades: [], events: [], leads: [], settings: { currency: 'ZAR' } };
+let activeTab = 'dashboard';
+let saveTimer = null;
+let incomeMonthOffset = 0;
+
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+const DAYS_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+
+/* =================== STORAGE FALLBACK =================== */
+const storageAdapter = {
+  get: async (key) => {
+    if (window.storage && typeof window.storage.get === 'function') {
+      return await window.storage.get(key, false);
+    }
+    return { value: localStorage.getItem(key) };
+  },
+  set: async (key, value) => {
+    if (window.storage && typeof window.storage.set === 'function') {
+      return await window.storage.set(key, value, false);
+    }
+    return localStorage.setItem(key, value);
+  }
+};
+
+/* =================== STORAGE CORE FOR APP DATA =================== */
+async function loadState(){
+  try{
+    const res = await storageAdapter.get('app-data');
+    if(res && res.value){
+      const parsed = JSON.parse(res.value);
+      state = Object.assign({students:[],trades:[],events:[],leads:[],settings:{currency:'ZAR'}}, parsed);
+    }
+  }catch(e){
+  }
+}
+
+function saveState(){
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try{ await storageAdapter.set('app-data', JSON.stringify(state)); }
+    catch(e){ showToast('Could not save — try again', true); }
+  }, 250);
+}
+
+/* =================== NAVIGATION PANEL =================== */
+document.getElementById('nav').addEventListener('click', e=>{
+  const btn = e.target.closest('button[data-tab]');
+  if(!btn) return;
+  activeTab = btn.dataset.tab;
+  render();
+});
+
+function render(){
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active', b.dataset.tab===activeTab));
+  const c = document.getElementById('content');
+  if(activeTab==='dashboard') c.innerHTML = renderDashboard();
+  else if(activeTab==='students') c.innerHTML = renderStudents();
+  else if(activeTab==='schedule') c.innerHTML = renderSchedule();
+  else if(activeTab==='journal') c.innerHTML = renderJournal();
+  else if(activeTab==='income') c.innerHTML = renderIncome();
+  renderTicker();
+}
+
+/* =================== WINDOW LISTENERS =================== */
+document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
+
+// start the app
+if (document.getElementById('nav')) {
+  (async function init(){
+    await loadState();
+    render();
+  })();
 }
