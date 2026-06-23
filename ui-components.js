@@ -111,7 +111,6 @@ function renderTicker(){
   el.innerHTML = items.concat(items).concat(items).join('');
 }
 
-/* MODULE COMPLETION COMPONENT LOGIC */
 function toggleModule(studentId, moduleKey) {
   const s = state.students.find(x => x.id === studentId);
   if(!s) return;
@@ -155,78 +154,125 @@ function renderDashboard(){
   const decided = wins+losses;
   const winRate = decided ? (wins/decided*100) : 0;
 
+  const incomeProgressPercent = expected > 0 ? Math.min(100, (received / expected) * 100) : 0;
   const sessions = todaysSessions();
   const recentTrades = [...trades].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
 
   return `
     <div class="page-head">
-      <div><h1>Dashboard</h1><p>${now.toLocaleDateString('en-ZA',{weekday:'long', day:'numeric', month:'long'})}</p></div>
+      <div>
+        <h1 style="letter-spacing: -0.5px;">Welcome Back, CEO</h1>
+        <p>${now.toLocaleDateString('en-ZA',{weekday:'long', day:'numeric', month:'long'})} · Market Operational Command</p>
+      </div>
     </div>
 
     ${overdueCount ? `
     <div class="alert-banner">
       <span>⏰</span>
-      <div><b>${overdueCount} student${overdueCount>1?'s':''} overdue</b> this month — ${overdueNames.map(escapeHtml).join(', ')}.</div>
+      <div><b>${overdueCount} collection balance${overdueCount>1?'s':''} pending</b> this month — ${overdueNames.map(escapeHtml).join(', ')}.</div>
     </div>` : ''}
 
     <div class="grid grid-4">
       <div class="card stat-card">
-        <div class="label">Active Students</div>
-        <div class="value">${activeStudents.length}</div>
-        <div class="sub">${state.students.filter(s=>s.status!=='active').length} inactive/paused</div>
+        <div class="label">Mentees On Book</div>
+        <div class="value">${activeStudents.length} <span style="font-size:13px; color:var(--text-faint); font-weight:400;">Active</span></div>
+        <div class="sub">${state.students.filter(s=>s.status!=='active').length} accounts paused/completed</div>
       </div>
+
       <div class="card stat-card">
-        <div class="label">Income This Month</div>
-        <div class="value">${fmtMoney(received)}</div>
-        <div class="sub ${received>=expected?'up':'neutral'}">of ${fmtMoney(expected)} expected</div>
+        <div class="label">Funding Milestones</div>
+        <div class="value up">${fmtMoney(received)}</div>
+        <div style="margin-top: 8px;">
+          <div style="background: var(--surface-3); height: 5px; border-radius: 3px; overflow: hidden; margin-bottom: 4px;">
+            <div style="background: linear-gradient(90deg, var(--blue), var(--green)); height: 100%; width: ${incomeProgressPercent}%"></div>
+          </div>
+          <div class="sub" style="margin-top:0; display:flex; justify-content:space-between;">
+            <span>Target Progress</span>
+            <span>${incomeProgressPercent.toFixed(0)}%</span>
+          </div>
+        </div>
       </div>
+
       <div class="card stat-card">
-        <div class="label">Overdue Students</div>
-        <div class="value ${overdueCount>0?'down':''}">${overdueCount}</div>
-        <div class="sub">Outstanding: ${fmtMoney(Math.max(0, expected - received))}</div>
+        <div class="label">Journal Edge Ratio</div>
+        <div class="value ${winRate>=50?'up':'down'}">${decided ? winRate.toFixed(1) : '0.0'}%</div>
+        <div style="margin-top: 8px;">
+          <div style="background: var(--red); height: 5px; border-radius: 3px; overflow: hidden; margin-bottom: 4px; display: flex;">
+            <div style="background: var(--green); height: 100%; width: ${winRate}%"></div>
+          </div>
+          <div class="sub" style="margin-top:0; display:flex; justify-content:space-between;">
+            <span class="up">${wins} Wins</span>
+            <span class="down">${losses} Losses</span>
+          </div>
+        </div>
       </div>
+
       <div class="card stat-card">
-        <div class="label">Total P&amp;L (Journal)</div>
+        <div class="label">Net Performance Record</div>
         <div class="value ${totalPnl>=0?'up':'down'}">${fmtMoney(totalPnl)}</div>
-        <div class="sub">${decided? winRate.toFixed(1):'—'}% Win Rate (${trades.length}T)</div>
+        <div class="sub">All-time realized balance tracking</div>
       </div>
     </div>
 
-    <div class="section-title">Today's Sessions</div>
-    <div class="card">
-      ${sessions.length===0 ? `<div class="empty-state"><div class="et">Nothing on the books today</div><div class="ed">Add a student session, or a one-off in Schedule.</div></div>` :
-        `<table><tbody>
-          ${sessions.map(s=>`<tr><td class="mono-cell" style="width:90px;color:var(--amber)">${s.time}</td><td>${escapeHtml(s.name)}</td></tr>`).join('')}
-        </tbody></table>`}
+    <div class="section-title"><span class="candle-glow-up">📊</span> Active Operational Timeline</div>
+    <div class="grid grid-2" style="align-items: start;">
+      <div>
+        <div class="card" style="padding-bottom: 24px;">
+          <b style="font-size: 14px; color: var(--text-dim); display:block; margin-bottom: 14px;">Today's Session Queue</b>
+          ${sessions.length===0 ? `<div class="empty-state" style="padding: 24px 0;"><div class="ed">No cohort blocks booked for today.</div></div>` :
+            `<table><tbody>
+              ${sessions.map(s=>`<tr>
+                <td class="mono-cell" style="width:90px; color:var(--amber); font-weight:700;">⚡ ${s.time}</td>
+                <td><b>${escapeHtml(s.name)}</b></td>
+                <td style="text-align:right;"><span class="badge badge-gray">1-on-1 Session</span></td>
+              </tr>`).join('')}
+            </tbody></table>`}
+        </div>
+      </div>
+      <div>
+        <div class="card" style="padding-bottom: 24px;">
+          <b style="font-size: 14px; color: var(--text-dim); display:block; margin-bottom: 14px;">Market Session Hours</b>
+          <table style="border: none;">
+            <tbody>
+              <tr><td>🇬🇧 London Open Session</td><td style="text-align: right;"><span class="badge badge-green" style="font-size:10px;">ACTIVE</span></td></tr>
+              <tr><td>🇺🇸 New York Overlap Session</td><td style="text-align: right;"><span class="badge badge-amber" style="font-size:10px;">UPCOMING</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <div class="grid grid-2" style="margin-top:30px">
       <div>
-        <div class="section-title">Recent Trades</div>
-        <div class="card">
-          ${recentTrades.length===0? `<div class="empty-state"><div class="et">No trades logged yet</div><div class="ed">Head to Journal to add your first one.</div></div>` :
-          `<table><tbody>
+        <div class="section-title"><span class="candle-glow-up">▲</span> Recent Market Executions</div>
+        <div class="card" style="padding: 0;">
+          ${recentTrades.length===0? `<div class="empty-state"><div class="ed">No trades logged. Head to Journal to add your first one.</div></div>` :
+          `<table style="width:100%"><tbody>
             ${recentTrades.map(t=> {
               const displayColor = t.outcome === 'win' || (!t.outcome && Number(t.pnl) >= 0) ? 'var(--green)' : t.outcome === 'breakeven' ? 'var(--amber)' : 'var(--red)';
               return `<tr>
-                <td class="mono-cell" style="color:var(--text-faint);width:70px">${fmtDateShort(t.date)}</td>
+                <td class="mono-cell" style="color:var(--text-faint); width:70px; padding-left:16px;">${fmtDateShort(t.date)}</td>
                 <td class="pair-tag">${escapeHtml(t.pair)}</td>
                 <td><span class="badge ${t.direction=='buy'?'badge-green':'badge-red'}">${t.direction.toUpperCase()}</span></td>
-                <td class="mono-cell" style="text-align:right;color:${displayColor}">${fmtMoney(t.pnl)}</td>
+                <td class="mono-cell" style="text-align:right; color:${displayColor}; padding-right:16px;"><b>${fmtMoney(t.pnl)}</b></td>
               </tr>`
             }).join('')}
           </tbody></table>`}
         </div>
       </div>
       <div>
-        <div class="section-title">Students Needing Attention</div>
-        <div class="card">
-          ${overdueCount===0 ? `<div class="empty-state"><div class="et">All caught up</div><div class="ed">No overdue payments this month.</div></div>` :
-          `<table><tbody>
+        <div class="section-title"><span class="candle-glow-down">▼</span> Billing Attention Matrix</div>
+        <div class="card" style="padding: 0;">
+          ${overdueCount===0 ? `<div class="empty-state"><div class="ed">All student collection metrics verified and current.</div></div>` :
+          `<table style="width:100%"><tbody>
             ${state.students.filter(s => {
               const st = studentMonthStatus(s, monthStart);
               return s.status==='active' && st && st.status==='overdue';
-            }).map(s=>`<tr><td>${escapeHtml(s.fullName)}</td><td style="text-align:right"><span class="badge badge-red">OVERDUE</span></td></tr>`).join('')}
+            }).map(s=>`<tr>
+              <td style="padding-left:16px;"><b>${escapeHtml(s.fullName)}</b></td>
+              <td style="color:var(--text-faint); font-size:12px;">Monthly Mentorship</td>
+              <td style="text-align:right; padding-right:16px;"><span class="badge badge-red">OVERDUE BALANCE</span></td>
+            </tr>`).join('')}
           </tbody></table>`}
         </div>
       </div>
@@ -361,7 +407,6 @@ function openStudentDetail(id){
   const s = state.students.find(x=>x.id===id);
   if(!s) return;
   const totalPaid = (s.payments||[]).reduce((a,p)=>a+Number(p.amount||0),0);
-  const monthsActive = Math.max(1, monthsBetween(s.startDate, todayStr())+1);
   const payments = [...(s.payments||[])].sort((a,b)=>b.date.localeCompare(a.date));
   openModal(`
     <h3>Mentee Profile — ${escapeHtml(s.fullName)}</h3>
@@ -451,15 +496,6 @@ function renderSchedule(){
   const dow = today.getDay(); const todayIdx = dow===0?6:dow-1;
   const upcomingEvents = [...state.events].filter(e=>e.date>=todayStr()).sort((a,b)=> (a.date+a.time).localeCompare(b.date+b.time));
 
-  // Simulating in-app reminders based on time blocks
-  setTimeout(() => {
-    const currentHrMin = new Date().toTimeString().slice(0,5);
-    const matchSess = state.students.find(s=>s.status==='active' && s.sessionTime && s.sessionDay === DAYS[todayIdx]);
-    if (matchSess && matchSess.sessionTime.substring(0,2) === currentHrMin.substring(0,2)) {
-      showToast(`${matchSess.fullName}'s mentorship starts imminently.`, false);
-    }
-  }, 1000);
-
   return `
     <div class="page-head">
       <div><h1>Schedule &amp; Calendar</h1><p>Weekly fixed cohort time allocations and single custom events.</p></div>
@@ -532,13 +568,8 @@ function renderJournal(){
   window.filterEnd = window.filterEnd || '';
 
   let trades = [...state.trades];
-  if (window.filterStart) {
-    trades = trades.filter(t => t.date >= window.filterStart);
-  }
-  if (window.filterEnd) {
-    trades = trades.filter(t => t.date <= window.filterEnd);
-  }
-
+  if (window.filterStart) { trades = trades.filter(t => t.date >= window.filterStart); }
+  if (window.filterEnd) { trades = trades.filter(t => t.date <= window.filterEnd); }
   trades.sort((a,b)=>b.date.localeCompare(a.date));
 
   const wins = trades.filter(t=>t.outcome === 'win' || (!t.outcome && Number(t.pnl)>0)).length;
@@ -610,7 +641,7 @@ function renderJournal(){
               return `<tr style="cursor:pointer" onclick="openTradeForm('${t.id}')">
                 <td class="mono-cell" style="color:var(--text-faint);width:64px">${fmtDateShort(t.date)}</td>
                 <td class="pair-tag">${escapeHtml(t.pair)} <span style="font-size:10px;color:var(--text-faint);font-weight:400;">(${t.rMultiplier >= 0 ? '+' : ''}${t.rMultiplier}R)</span></td>
-                <td><span class="badge ${t.direction==='buy'?'badge-green':'badge-red'}">${t.direction.toUpperCase()}</span></td>
+                <td><span class="badge ${t.direction=='buy'?'badge-green':'badge-red'}">${t.direction.toUpperCase()}</span></td>
                 <td class="mono-cell" style="text-align:right;color:${displayColor}">${fmtMoney(t.pnl)}</td>
               </tr>`
             }).join('')}
@@ -675,10 +706,10 @@ function openTradeForm(id){
         <div class="field"><label>Risk Exposure Target (%)</label><input type="text" inputmode="decimal" name="riskPercent" placeholder="e.g. 1" value="${t?t.riskPercent||'':''}"></div>
       </div>
       <div class="field"><label>Result Outcome R-Multiple</label><input type="text" inputmode="numeric" name="rMultiplier" placeholder="e.g. +2 or -1" value="${t?t.rMultiplier||'':''}"></div>
-      <div class="field"><label>Net Realized P&amp;L (ZAR — use negative sign for losses)</label><input type="text" inputmode="decimal" name="pnl" placeholder="e.g. 4500 or -1200" value="${t?t.pnl:''}"></div>
+      <div class="field"><label>Net Realized P&amp;L (ZAR)</label><input type="text" inputmode="decimal" name="pnl" placeholder="e.g. 4500" value="${t?t.pnl:''}"></div>
       <div class="field"><label>Chart Setup Screenshot URL</label><input type="text" name="screenshotUrl" placeholder="https://tradingview.com/x/..." value="${t?escapeHtml(t.screenshotUrl||''):''}"></div>
       ${t && t.screenshotUrl ? `<div style="margin-bottom:12px;"><a href="${escapeHtml(t.screenshotUrl)}" target="_blank" class="badge badge-green" style="text-decoration:none">View Attached Chart Layout ↗</a></div>` : ''}
-      <div class="field"><label>Confluence Notes</label><textarea name="notes" placeholder="Market structure details, session type, break of character confirmations...">${t?escapeHtml(t.notes||''):''}</textarea></div>
+      <div class="field"><label>Confluence Notes</label><textarea name="notes">${t?escapeHtml(t.notes||''):''}</textarea></div>
       <div class="modal-actions" style="justify-content:${t?'space-between':'flex-end'}">
         ${t?`<button type="button" class="btn btn-danger btn-sm" onclick="deleteTrade('${t.id}')">Delete Log</button>`:''}
         <div style="display:flex;gap:8px">
@@ -739,25 +770,9 @@ function renderIncome(){
 
   let grandTotalRevenue = 0;
   state.students.forEach(s => {
-    if(s.payments) {
-      s.payments.forEach(p => grandTotalRevenue += Number(p.amount || 0));
-    }
+    if(s.payments) { s.payments.forEach(p => grandTotalRevenue += Number(p.amount || 0)); }
   });
 
-  const months = [];
-  for(let i=5;i>=0;i--){
-    const d = new Date(); d.setMonth(d.getMonth()-i);
-    const ms = new Date(d.getFullYear(), d.getMonth(), 1);
-    let rec=0;
-    state.students.forEach(s=>{
-      const st = studentMonthStatus(s, ms);
-      if(st) rec += st.paidAmount;
-    });
-    months.push({label: ms.toLocaleDateString('en-ZA',{month:'short'}), value: rec});
-  }
-  const maxVal = Math.max(1, ...months.map(m=>m.value));
-
-  // CRM Pipeline State Binding Hook
   state.leads = state.leads || [];
   const prospects = state.leads.filter(l => l.stage === 'prospect');
   const followupList = state.leads.filter(l => l.stage === 'followup');
@@ -776,7 +791,7 @@ function renderIncome(){
     <div class="grid grid-3">
       <div class="card stat-card"><div class="label">Expected This Month</div><div class="value">${fmtMoney(expected)}</div></div>
       <div class="card stat-card"><div class="label">Total Collected (Current Month)</div><div class="value up">${fmtMoney(received)}</div></div>
-      <div class="card stat-card"><div class="label">Total Revenue Generated (All-Time)</div><div class="value up" style="color:var(--blue);">${fmtMoney(grandTotalRevenue)}</div></div>
+      <div class="card stat-card"><div class="label">Total Revenue Generated</div><div class="value up" style="color:var(--blue);">${fmtMoney(grandTotalRevenue)}</div></div>
     </div>
 
     <div class="page-head" style="margin-top:40px; margin-bottom:10px;">
@@ -845,7 +860,7 @@ function openLeadForm(id) {
           <option value="hot" ${l && l.stage === 'hot' ? 'selected' : ''}>Hot / Ready to Convert</option>
         </select>
       </div>
-      <div class="field"><label>Latest Follow-up Interaction Note</label><textarea name="lastNote" placeholder="e.g. Sent course outline via WhatsApp...">${l ? escapeHtml(l.lastNote || '') : ''}</textarea></div>
+      <div class="field"><label>Latest Follow-up Interaction Note</label><textarea name="lastNote">${l ? escapeHtml(l.lastNote || '') : ''}</textarea></div>
       <div class="modal-actions" style="justify-content: ${l ? 'space-between' : 'flex-end'}">
         ${l ? `<button type="button" class="btn btn-danger btn-sm" onclick="state.leads=state.leads.filter(x=>x.id!=='${l.id}');saveState();closeModal();render();showToast('Lead removed');">Delete</button>` : ''}
         <div style="display:flex; gap:8px;">
@@ -886,15 +901,11 @@ const DAYS_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 /* =================== STORAGE FALLBACK =================== */
 const storageAdapter = {
   get: async (key) => {
-    if (window.storage && typeof window.storage.get === 'function') {
-      return await window.storage.get(key, false);
-    }
+    if (window.storage && typeof window.storage.get === 'function') { return await window.storage.get(key, false); }
     return { value: localStorage.getItem(key) };
   },
   set: async (key, value) => {
-    if (window.storage && typeof window.storage.set === 'function') {
-      return await window.storage.set(key, value, false);
-    }
+    if (window.storage && typeof window.storage.set === 'function') { return await window.storage.set(key, value, false); }
     return localStorage.setItem(key, value);
   }
 };
@@ -907,8 +918,7 @@ async function loadState(){
       const parsed = JSON.parse(res.value);
       state = Object.assign({students:[],trades:[],events:[],leads:[],settings:{currency:'ZAR'}}, parsed);
     }
-  }catch(e){
-  }
+  }catch(e){}
 }
 
 function saveState(){
