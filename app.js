@@ -1,5 +1,6 @@
 /* =================== APP CONTROLLER & STATE =================== */
-let state = { students: [], trades: [], events: [], settings: { currency: 'ZAR' } };
+// Upgraded state initialization schema to securely handle Phase 2 tracking data arrays
+let state = { students: [], trades: [], events: [], leads: [], settings: { currency: 'ZAR' } };
 let activeTab = 'dashboard';
 let saveTimer = null;
 let incomeMonthOffset = 0;
@@ -23,23 +24,44 @@ const storageAdapter = {
   }
 };
 
-/* =================== STORAGE CORE FOR APP DATA =================== */
-async function loadState(){
-  try{
-    const res = await storageAdapter.get('app-data');
-    if(res && res.value){
-      const parsed = JSON.parse(res.value);
-      state = Object.assign({students:[],trades:[],events:[],settings:{currency:'ZAR'}}, parsed);
+/* =================== UPGRADED NETWORK CORE FOR AUTOMATED AI SYNC =================== */
+async function loadState() {
+  try {
+    // 1. Attempt to pull centralized database state directly from your local Python server gateway
+    const response = await fetch('http://127.0.0.1:8000/api/state');
+    if (response.ok) {
+      state = await response.json();
+      console.log("Central AI operational core synchronized successfully.");
+    } else {
+      throw new Error("Server communication mismatch.");
     }
-  }catch(e){
+  } catch (e) {
+    console.log("Backend server offline. Safely falling back to local device storage device cache.");
+    // 2. Local sandbox fallback hook if backend server is not running
+    const res = await storageAdapter.get('app-data');
+    if (res && res.value) {
+      const parsed = JSON.parse(res.value);
+      state = Object.assign({ students: [], trades: [], events: [], leads: [], settings: { currency: 'ZAR' } }, parsed);
+    }
   }
 }
 
-function saveState(){
+function saveState() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
-    try{ await storageAdapter.set('app-data', JSON.stringify(state)); }
-    catch(e){ showToast('Could not save — try again', true); }
+    try {
+      // Step A: Immediately preserve a snapshot to your device local browser sandbox parameters
+      await storageAdapter.set('app-data', JSON.stringify(state));
+
+      // Step B: Synchronize the live state array up to your Python backend for Jarvis context ingestion
+      await fetch('http://127.0.0.1:8000/api/state/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(state)
+      });
+    } catch (e) {
+      console.log("State saved locally. Central server synchronization offline.");
+    }
   }, 250);
 }
 
@@ -66,8 +88,10 @@ function render(){
 document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
 
-// start the app
-(async function init(){
-  await loadState();
-  render();
-})();
+// start the app automatically upon framework bundle mounting
+if (document.getElementById('nav')) {
+  (async function init(){
+    await loadState();
+    render();
+  })();
+}
