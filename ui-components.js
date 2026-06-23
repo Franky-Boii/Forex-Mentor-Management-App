@@ -132,8 +132,8 @@ function renderDashboard(){
 
   const trades = state.trades;
   const totalPnl = trades.reduce((s,t)=>s+Number(t.pnl||0),0);
-  const wins = trades.filter(t=>Number(t.pnl)>0).length;
-  const losses = trades.filter(t=>Number(t.pnl)<0).length;
+  const wins = trades.filter(t=>t.outcome === 'win' || (!t.outcome && Number(t.pnl)>0)).length;
+  const losses = trades.filter(t=>t.outcome === 'loss' || (!t.outcome && Number(t.pnl)<0)).length;
   const decided = wins+losses;
   const winRate = decided ? (wins/decided*100) : 0;
 
@@ -188,12 +188,15 @@ function renderDashboard(){
         <div class="card">
           ${recentTrades.length===0? `<div class="empty-state"><div class="et">No trades logged yet</div><div class="ed">Head to Journal to add your first one.</div></div>` :
           `<table><tbody>
-            ${recentTrades.map(t=>`<tr>
-              <td class="mono-cell" style="color:var(--text-faint);width:70px">${fmtDateShort(t.date)}</td>
-              <td class="pair-tag">${escapeHtml(t.pair)}</td>
-              <td><span class="badge ${t.direction==='buy'?'badge-green':'badge-red'}">${t.direction.toUpperCase()}</span></td>
-              <td class="mono-cell" style="text-align:right;color:${Number(t.pnl)>=0?'var(--green)':'var(--red)'}">${fmtMoney(t.pnl)}</td>
-            </tr>`).join('')}
+            ${recentTrades.map(t=> {
+              const displayColor = t.outcome === 'win' || (!t.outcome && Number(t.pnl) >= 0) ? 'var(--green)' : t.outcome === 'breakeven' ? 'var(--amber)' : 'var(--red)';
+              return `<tr>
+                <td class="mono-cell" style="color:var(--text-faint);width:70px">${fmtDateShort(t.date)}</td>
+                <td class="pair-tag">${escapeHtml(t.pair)}</td>
+                <td><span class="badge ${t.direction=='buy'?'badge-green':'badge-red'}">${t.direction.toUpperCase()}</span></td>
+                <td class="mono-cell" style="text-align:right;color:${displayColor}">${fmtMoney(t.pnl)}</td>
+              </tr>`
+            }).join('')}
           </tbody></table>`}
         </div>
       </div>
@@ -496,16 +499,27 @@ function deleteEvent(id){
 
 /* =================== 4. JOURNAL COMPONENT =================== */
 function renderJournal(){
-  const trades = [...state.trades].sort((a,b)=>b.date.localeCompare(a.date));
-  const wins = state.trades.filter(t=>Number(t.pnl)>0);
-  const losses = state.trades.filter(t=>Number(t.pnl)<0);
+  window.filterStart = window.filterStart || '';
+  window.filterEnd = window.filterEnd || '';
+
+  let trades = [...state.trades];
+  if (window.filterStart) {
+    trades = trades.filter(t => t.date >= window.filterStart);
+  }
+  if (window.filterEnd) {
+    trades = trades.filter(t => t.date <= window.filterEnd);
+  }
+
+  trades.sort((a,b)=>b.date.localeCompare(a.date));
+
+  const wins = trades.filter(t=>t.outcome === 'win' || (!t.outcome && Number(t.pnl)>0));
+  const losses = trades.filter(t=>t.outcome === 'loss' || (!t.outcome && Number(t.pnl)<0));
   const decided = wins.length+losses.length;
   const winRate = decided? wins.length/decided*100 : 0;
-  const totalPnl = state.trades.reduce((s,t)=>s+Number(t.pnl||0),0);
+  const totalPnl = trades.reduce((s,t)=>s+Number(t.pnl||0),0);
 
-  // Custom Analytics Fields
   let bestTrade = 0, worstTrade = 0, totalR = 0;
-  state.trades.forEach(t => {
+  trades.forEach(t => {
     const val = Number(t.pnl || 0);
     if(val > bestTrade) bestTrade = val;
     if(val < worstTrade) worstTrade = val;
@@ -514,25 +528,34 @@ function renderJournal(){
   const avgRR = decided ? (totalR / decided) : 0;
 
   const byPair = {};
-  state.trades.forEach(t=>{
+  trades.forEach(t=>{
     byPair[t.pair] = byPair[t.pair] || {count:0, pnl:0};
     byPair[t.pair].count++; byPair[t.pair].pnl += Number(t.pnl||0);
   });
   const pairRows = Object.entries(byPair).sort((a,b)=>b[1].pnl-a[1].pnl);
 
-  const sorted = [...state.trades].sort((a,b)=>a.date.localeCompare(b.date));
+  const sorted = [...trades].sort((a,b)=>a.date.localeCompare(b.date));
   let cum=0; const points = sorted.map(t=>{ cum+=Number(t.pnl||0); return cum; });
   const curveSvg = buildSparkline(points);
 
   return `
     <div class="page-head">
       <div><h1>Personal Trading Journal</h1><p>Track high-performance executions, risk targets, strategy layout URLs and R-multiples.</p></div>
-      <button class="btn btn-primary" onclick="openTradeForm()">+ Add Trade</button>
+      <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-dim)">
+          <label>From:</label>
+          <input type="date" id="journalStartFilter" value="${window.filterStart}" style="padding:6px; font-size:12px; width:130px; background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:5px;" onchange="window.filterStart=this.value;render();">
+          <label>To:</label>
+          <input type="date" id="journalEndFilter" value="${window.filterEnd}" style="padding:6px; font-size:12px; width:130px; background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:5px;" onchange="window.filterEnd=this.value;render();">
+          <button class="btn btn-sm btn-ghost" onclick="window.filterStart='';window.filterEnd='';render();" style="padding:4px 8px; font-size:11px;">Clear</button>
+        </div>
+        <button class="btn btn-primary" onclick="openTradeForm()">+ Add Trade</button>
+      </div>
     </div>
 
     <div class="grid grid-4">
       <div class="card stat-card"><div class="label">Win Rate</div><div class="value ${winRate>=50?'up':'down'}">${decided?winRate.toFixed(1):'—'}%</div><div class="sub">${wins.length}W / ${losses.length}L</div></div>
-      <div class="card stat-card"><div class="label">Total P&amp;L Matrix</div><div class="value ${totalPnl>=0?'up':'down'}">${fmtMoney(totalPnl)}</div><div class="sub">${state.trades.length} total trades logged</div></div>
+      <div class="card stat-card"><div class="label">Total P&amp;L Matrix</div><div class="value ${totalPnl>=0?'up':'down'}">${fmtMoney(totalPnl)}</div><div class="sub">${trades.length} total trades logged</div></div>
       <div class="card stat-card"><div class="label">Average R:R Outcome</div><div class="value neutral">${avgRR >= 0 ? '+' : ''}${avgRR.toFixed(2)}R</div><div class="sub">Net cumulative performance</div></div>
       <div class="card stat-card"><div class="label">Extremes (Best/Worst)</div><div class="value" style="font-size:14px;line-height:24px;"><span class="up">Max: ${fmtMoney(bestTrade)}</span><br><span class="down">Min: ${fmtMoney(worstTrade)}</span></div></div>
     </div>
@@ -553,12 +576,15 @@ function renderJournal(){
         <div class="card" style="${trades.length?'padding:0':''};max-height:340px;overflow-y:auto">
           ${trades.length===0? `<div class="empty-state"><div class="et">No trades yet</div><div class="ed">Log your first trade execution to begin engine calculation.</div></div>` :
           `<table><tbody>
-            ${trades.map(t=>`<tr style="cursor:pointer" onclick="openTradeForm('${t.id}')">
-              <td class="mono-cell" style="color:var(--text-faint);width:64px">${fmtDateShort(t.date)}</td>
-              <td class="pair-tag">${escapeHtml(t.pair)} <span style="font-size:10px;color:var(--text-faint);font-weight:400;">(${t.rMultiplier >= 0 ? '+' : ''}${t.rMultiplier}R)</span></td>
-              <td><span class="badge ${t.direction==='buy'?'badge-green':'badge-red'}">${t.direction.toUpperCase()}</span></td>
-              <td class="mono-cell" style="text-align:right;color:${Number(t.pnl)>=0?'var(--green)':'var(--red)'}">${fmtMoney(t.pnl)}</td>
-            </tr>`).join('')}
+            ${trades.map(t=>{
+              const displayColor = t.outcome === 'win' || (!t.outcome && Number(t.pnl) >= 0) ? 'var(--green)' : t.outcome === 'breakeven' ? 'var(--amber)' : 'var(--red)';
+              return `<tr style="cursor:pointer" onclick="openTradeForm('${t.id}')">
+                <td class="mono-cell" style="color:var(--text-faint);width:64px">${fmtDateShort(t.date)}</td>
+                <td class="pair-tag">${escapeHtml(t.pair)} <span style="font-size:10px;color:var(--text-faint);font-weight:400;">(${t.rMultiplier >= 0 ? '+' : ''}${t.rMultiplier}R)</span></td>
+                <td><span class="badge ${t.direction==='buy'?'badge-green':'badge-red'}">${t.direction.toUpperCase()}</span></td>
+                <td class="mono-cell" style="text-align:right;color:${displayColor}">${fmtMoney(t.pnl)}</td>
+              </tr>`
+            }).join('')}
           </tbody></table>`}
         </div>
       </div>
@@ -599,20 +625,27 @@ function openTradeForm(id){
         <div class="field"><label>Order Direction</label>
           <select name="direction"><option value="buy" ${t&&t.direction==='buy'?'selected':''}>Buy / Long</option><option value="sell" ${t&&t.direction==='sell'?'selected':''}>Sell / Short</option></select>
         </div>
+        <div class="field"><label>Trade Outcome</label>
+          <select name="outcome">
+            <option value="win" ${t&&t.outcome==='win'?'selected':''}>Win / Take Profit (TP)</option>
+            <option value="loss" ${t&&t.outcome==='loss'?'selected':''}>Loss / Stop Loss (SL)</option>
+            <option value="breakeven" ${t&&t.outcome==='breakeven'?'selected':''}>Scratch / Break-Even</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row">
         <div class="field"><label>Allocated Lot Size</label><input type="text" inputmode="decimal" name="lotSize" value="${t?t.lotSize||'':''}"></div>
-      </div>
-      <div class="field-row">
         <div class="field"><label>Entry Price</label><input type="text" inputmode="decimal" name="entry" value="${t?t.entry||'':''}"></div>
+      </div>
+      <div class="field-row">
         <div class="field"><label>Exit Price Trigger</label><input type="text" inputmode="decimal" name="exit" value="${t?t.exit||'':''}"></div>
-      </div>
-      <div class="field-row">
         <div class="field"><label>Stop Loss (SL)</label><input type="text" inputmode="decimal" name="sl" value="${t?t.sl||'':''}"></div>
-        <div class="field"><label>Take Profit (TP)</label><input type="text" inputmode="decimal" name="tp" value="${t?t.tp||'':''}"></div>
       </div>
       <div class="field-row">
+        <div class="field"><label>Take Profit (TP)</label><input type="text" inputmode="decimal" name="tp" value="${t?t.tp||'':''}"></div>
         <div class="field"><label>Risk Exposure Target (%)</label><input type="text" inputmode="decimal" name="riskPercent" placeholder="e.g. 1" value="${t?t.riskPercent||'':''}"></div>
-        <div class="field"><label>Result Outcome R-Multiple</label><input type="text" inputmode="numeric" name="rMultiplier" placeholder="e.g. +2 or -1" value="${t?t.rMultiplier||'':''}"></div>
       </div>
+      <div class="field"><label>Result Outcome R-Multiple</label><input type="text" inputmode="numeric" name="rMultiplier" placeholder="e.g. +2 or -1" value="${t?t.rMultiplier||'':''}"></div>
       <div class="field"><label>Net Realized P&amp;L (ZAR — use negative sign for losses)</label><input type="text" inputmode="decimal" name="pnl" placeholder="e.g. 4500 or -1200" value="${t?t.pnl:''}"></div>
       <div class="field"><label>Chart Setup Screenshot URL</label><input type="text" name="screenshotUrl" placeholder="https://tradingview.com/x/..." value="${t?escapeHtml(t.screenshotUrl||''):''}"></div>
       ${t && t.screenshotUrl ? `<div style="margin-bottom:12px;"><a href="${escapeHtml(t.screenshotUrl)}" target="_blank" class="badge badge-green" style="text-decoration:none">View Attached Chart Layout ↗</a></div>` : ''}
@@ -640,12 +673,14 @@ function openTradeForm(id){
     const sl = parseNum(f.get('sl')); const tp = parseNum(f.get('tp'));
 
     const data = {
-      date, pair, direction:f.get('direction'),
-      lotSize:isNaN(lotSize)?0:lotSize, entry:isNaN(entry)?0:entry, exit:isNaN(exit)?0:exit,
-      sl:isNaN(sl)?0:sl, tp:isNaN(tp)?0:tp,
+      date, pair,
+      direction: f.get('direction'),
+      outcome: f.get('outcome'),
+      lotSize: isNaN(lotSize)?0:lotSize, entry: isNaN(entry)?0:entry, exit: isNaN(exit)?0:exit,
+      sl: isNaN(sl)?0:sl, tp: isNaN(tp)?0:tp,
       riskPercent: parseNum(f.get('riskPercent'))||0,
       rMultiplier: parseNum(f.get('rMultiplier'))||0,
-      pnl, screenshotUrl: (f.get('screenshotUrl')||'').trim(), notes:(f.get('notes')||'').trim()
+      pnl, screenshotUrl: (f.get('screenshotUrl')||'').trim(), notes: (f.get('notes')||'').trim()
     };
     if(t){ Object.assign(t,data); showToast('Trade metrics updated'); }
     else { state.trades.push(Object.assign({id:uid()}, data)); showToast('Execution captured safely'); }
@@ -673,7 +708,6 @@ function renderIncome(){
     return {s, st};
   }).filter(r=>r.st);
 
-  // Dynamic Total Historical Revenue Generated calculation across all student payment arrays
   let grandTotalRevenue = 0;
   state.students.forEach(s => {
     if(s.payments) {

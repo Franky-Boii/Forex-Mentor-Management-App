@@ -1,20 +1,38 @@
-:root{
-  --bg:#0B0F14;
-  --surface:#121821;
-  --surface-2:#1A2330;
-  --surface-3:#212C3A;
-  --border:#26313F;
-  --text:#E7ECF2;
-  --text-dim:#92A0B2;
-  --text-faint:#5C6776;
-  --green:#2DD4A7;
-  --green-dim:#1B8A6B;
-  --red:#F2545B;
-  --red-dim:#9C3338;
-  --amber:#F5A623;
-  --blue:#5B8DEF;
-  --radius:10px;
+:root {
+  --bg: #0B0F14;
+  --surface: #121821;
+  --surface-2: #1A2330;
+  --surface-3: #212C3A;
+  --border: #26313F;
+  --text: #E7ECF2;
+  --text-dim: #92A0B2;
+  --text-faint: #5C6776;
+  --green: #2DD4A7;
+  --green-dim: #1B8A6B;
+  --red: #F2545B;
+  --red-dim: #9C3338;
+  --amber: #F5A623;
+  --blue: #5B8DEF;
+  --radius: 10px;
+  --transition: background 0.22s ease, color 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
 }
+
+/* Light Mode Theme Overrides */
+body.light-mode {
+  --bg: #F4F6F8;
+  --surface: #FFFFFF;
+  --surface-2: #F0F2F5;
+  --surface-3: #E4E7EB;
+  --border: #D0D5DD;
+  --text: #101828;
+  --text-dim: #475467;
+  --text-faint: #667085;
+  --green: #027A48;
+  --green-dim: rgba(2, 122, 72, 0.1);
+  --red: #B42318;
+  --red-dim: rgba(180, 35, 24, 0.1);
+}
+
 *{box-sizing:border-box;}
 html,body{margin:0;padding:0;}
 body{
@@ -26,6 +44,7 @@ body{
   font-family:'Inter',system-ui,sans-serif;
   min-height:100vh;
   -webkit-font-smoothing:antialiased;
+  transition: var(--transition);
 }
 .mono{font-family:'JetBrains Mono',monospace;}
 h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;}
@@ -55,7 +74,7 @@ input,select,textarea{font-family:inherit;}
   display:flex;align-items:center;gap:10px;
   background:none;border:none;color:var(--text-dim);
   padding:10px 12px;border-radius:8px;font-size:13.5px;font-weight:500;
-  text-align:left;transition:background .15s,color .15s;
+  text-align:left;transition:var(--transition);
 }
 .nav button:hover{background:var(--surface-2);color:var(--text);}
 .nav button.active{background:var(--surface-3);color:var(--text);box-shadow:inset 2px 0 0 var(--blue);}
@@ -93,7 +112,7 @@ input,select,textarea{font-family:inherit;}
 .btn{
   background:var(--surface-3);color:var(--text);border:1px solid var(--border);
   padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;
-  display:inline-flex;align-items:center;gap:6px;transition:transform .1s, border-color .15s;
+  display:inline-flex;align-items:center;gap:6px;transition:transform .1s, border-color .15s, var(--transition);
 }
 .btn:hover{border-color:var(--blue);}
 .btn:active{transform:scale(0.98);}

@@ -12,12 +12,15 @@
 
 <div id="app">
     <aside class="sidebar">
-        <div class="brand">
-            <div class="logo">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 17l5-6 4 3 6-8 3 4" stroke="#5B8DEF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                Forex CEO
+        <div class="brand" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+            <div>
+                <div class="logo">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 17l5-6 4 3 6-8 3 4" stroke="#5B8DEF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Forex CEO
+                </div>
+                <div class="tag">Mentorship & Journal</div>
             </div>
-            <div class="tag">Forex Mentorship & Journal</div>
+            <button id="themeToggle" class="btn btn-ghost btn-icon" style="padding: 6px 10px; font-size: 13px;" title="Toggle Appearance Mode">☀️</button>
         </div>
         <nav class="nav" id="nav">
             <button class="active" data-tab="dashboard"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="9" rx="1.5" stroke="currentColor" stroke-width="1.6"/><rect x="14" y="3" width="7" height="5" rx="1.5" stroke="currentColor" stroke-width="1.6"/><rect x="14" y="12" width="7" height="9" rx="1.5" stroke="currentColor" stroke-width="1.6"/><rect x="3" y="16" width="7" height="5" rx="1.5" stroke="currentColor" stroke-width="1.6"/></svg><span class="lbl">Dashboard</span></button>
@@ -38,8 +41,21 @@
 <div class="overlay" id="overlay"><div class="modal" id="modalBody"></div></div>
 <div id="toastHost"></div>
 
-<!-- Load Javascript files sequentially -->
 <script src="ui-components.js"></script>
 <script src="app.js"></script>
+
+<script>
+    const themeBtn = document.getElementById('themeToggle');
+    themeBtn.addEventListener('click', () => {
+      document.body.classList.toggle('light-mode');
+      const isLight = document.body.classList.contains('light-mode');
+      themeBtn.innerText = isLight ? '🌙' : '☀️';
+      localStorage.setItem('theme', isLight ? 'light' : 'dark');
+    });
+    if(localStorage.getItem('theme') === 'light') {
+      document.body.classList.add('light-mode');
+      themeBtn.innerText = '🌙';
+    }
+</script>
 </body>
 </html>
