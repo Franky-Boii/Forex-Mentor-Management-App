@@ -60,6 +60,7 @@ function flagFieldError(el, msg){
 
 function showToast(msg, isError){
   const host = document.getElementById('toastHost');
+  if(!host) return;
   const t = document.createElement('div');
   t.className='toast';
   t.style.borderColor = isError ? 'var(--red-dim)' : 'var(--border)';
@@ -100,10 +101,10 @@ function todaysSessions(){
 
 function renderTicker(){
   const el = document.getElementById('ticker');
+  if(!el) return;
   const sessions = todaysSessions();
   if(sessions.length===0){
-    el.innerHTML = `<span class="ticker-item empty">No sessions scheduled today</span>`.repeat(1) +
-      Array(3).fill(`<span class="ticker-item empty">·</span>`).join('');
+    el.innerHTML = `<span class="ticker-item empty">No sessions scheduled today</span>`;
     return;
   }
   const items = sessions.map(s=>`<span class="ticker-item"><span class="dot"></span>${s.time} — ${escapeHtml(s.name)}</span>`);
@@ -115,21 +116,26 @@ function renderDashboard(){
   const activeStudents = state.students.filter(s=>s.status==='active');
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  let expected=0, received=0, overdueList=[];
-  activeStudents.forEach(s=>{
+
+  let expected = 0, received = 0, overdueCount = 0, overdueNames = [];
+  activeStudents.forEach(s => {
     const st = studentMonthStatus(s, monthStart);
     if(st){
       expected += Number(s.fee||0);
       received += st.paidAmount;
-      if(st.status==='overdue') overdueList.push(s);
+      if(st.status==='overdue') {
+        overdueCount++;
+        overdueNames.push(s.fullName);
+      }
     }
   });
+
   const trades = state.trades;
+  const totalPnl = trades.reduce((s,t)=>s+Number(t.pnl||0),0);
   const wins = trades.filter(t=>Number(t.pnl)>0).length;
   const losses = trades.filter(t=>Number(t.pnl)<0).length;
   const decided = wins+losses;
-  const winRate = decided? (wins/decided*100) : 0;
-  const totalPnl = trades.reduce((s,t)=>s+Number(t.pnl||0),0);
+  const winRate = decided ? (wins/decided*100) : 0;
 
   const sessions = todaysSessions();
   const recentTrades = [...trades].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5);
@@ -139,17 +145,17 @@ function renderDashboard(){
       <div><h1>Dashboard</h1><p>${now.toLocaleDateString('en-ZA',{weekday:'long', day:'numeric', month:'long'})}</p></div>
     </div>
 
-    ${overdueList.length ? `
+    ${overdueCount ? `
     <div class="alert-banner">
       <span>⏰</span>
-      <div><b>${overdueList.length} payment${overdueList.length>1?'s':''} overdue</b> this month — ${overdueList.map(s=>escapeHtml(s.fullName)).join(', ')}.</div>
+      <div><b>${overdueCount} student${overdueCount>1?'s':''} overdue</b> this month — ${overdueNames.map(escapeHtml).join(', ')}.</div>
     </div>` : ''}
 
     <div class="grid grid-4">
       <div class="card stat-card">
         <div class="label">Active Students</div>
         <div class="value">${activeStudents.length}</div>
-        <div class="sub">${state.students.length - activeStudents.length} inactive/paused</div>
+        <div class="sub">${state.students.filter(s=>s.status!=='active').length} inactive/paused</div>
       </div>
       <div class="card stat-card">
         <div class="label">Income This Month</div>
@@ -157,20 +163,20 @@ function renderDashboard(){
         <div class="sub ${received>=expected?'up':'neutral'}">of ${fmtMoney(expected)} expected</div>
       </div>
       <div class="card stat-card">
-        <div class="label">Trading Win Rate</div>
-        <div class="value ${winRate>=50?'up':'down'}">${decided? winRate.toFixed(1):'—'}%</div>
-        <div class="sub">${wins}W / ${losses}L · ${trades.length} total trades</div>
+        <div class="label">Overdue Students</div>
+        <div class="value ${overdueCount>0?'down':''}">${overdueCount}</div>
+        <div class="sub">Outstanding: ${fmtMoney(Math.max(0, expected - received))}</div>
       </div>
       <div class="card stat-card">
         <div class="label">Total P&amp;L (Journal)</div>
         <div class="value ${totalPnl>=0?'up':'down'}">${fmtMoney(totalPnl)}</div>
-        <div class="sub">All-time, all pairs</div>
+        <div class="sub">${decided? winRate.toFixed(1):'—'}% Win Rate (${trades.length}T)</div>
       </div>
     </div>
 
     <div class="section-title">Today's Sessions</div>
     <div class="card">
-      ${sessions.length===0 ? `<div class="empty-state"><div class="et">Nothing on the books today</div><div class="ed">Add a student with a weekly session, or a one-off in Schedule.</div></div>` :
+      ${sessions.length===0 ? `<div class="empty-state"><div class="et">Nothing on the books today</div><div class="ed">Add a student session, or a one-off in Schedule.</div></div>` :
         `<table><tbody>
           ${sessions.map(s=>`<tr><td class="mono-cell" style="width:90px;color:var(--amber)">${s.time}</td><td>${escapeHtml(s.name)}</td></tr>`).join('')}
         </tbody></table>`}
@@ -194,9 +200,12 @@ function renderDashboard(){
       <div>
         <div class="section-title">Students Needing Attention</div>
         <div class="card">
-          ${overdueList.length===0 ? `<div class="empty-state"><div class="et">All caught up</div><div class="ed">No overdue payments this month.</div></div>` :
+          ${overdueCount===0 ? `<div class="empty-state"><div class="et">All caught up</div><div class="ed">No overdue payments this month.</div></div>` :
           `<table><tbody>
-            ${overdueList.map(s=>`<tr><td>${escapeHtml(s.fullName)}</td><td style="text-align:right"><span class="badge badge-red">OVERDUE</span></td></tr>`).join('')}
+            ${state.students.filter(s => {
+              const st = studentMonthStatus(s, monthStart);
+              return s.status==='active' && st && st.status==='overdue';
+            }).map(s=>`<tr><td>${escapeHtml(s.fullName)}</td><td style="text-align:right"><span class="badge badge-red">OVERDUE</span></td></tr>`).join('')}
           </tbody></table>`}
         </div>
       </div>
@@ -209,7 +218,7 @@ function renderStudents(){
   const list = [...state.students].sort((a,b)=>a.fullName.localeCompare(b.fullName));
   return `
     <div class="page-head">
-      <div><h1>Students</h1><p>Manage your mentees, sessions and payment history.</p></div>
+      <div><h1>Students</h1><p>Manage your mentees, courses, progress scores and billing setups.</p></div>
       <button class="btn btn-primary" onclick="openStudentForm()">+ Add Student</button>
     </div>
     ${list.length===0 ? `<div class="card"><div class="empty-state">
@@ -217,18 +226,25 @@ function renderStudents(){
       </div></div>` :
     `<div class="card" style="padding:0;overflow-x:auto">
       <table>
-        <thead><tr><th>Name</th><th>ID</th><th>Started</th><th>Session</th><th>Fee / mo</th><th>This month</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>Name</th><th>Package</th><th>Progress</th><th>Session Block</th><th>Fee / mo</th><th>This Month</th><th>Status</th><th></th></tr></thead>
         <tbody>
           ${list.map(s=>{
             const now=new Date(); const monthStart=new Date(now.getFullYear(),now.getMonth(),1);
             const st = studentMonthStatus(s, monthStart);
             const statusBadge = !st ? '<span class="badge badge-gray">NOT STARTED</span>' :
               st.status==='paid' ? '<span class="badge badge-green">PAID</span>' :
-              st.status==='overdue' ? '<span class="badge badge-red">OVERDUE</span>' : '<span class="badge badge-amber">UPCOMING</span>';
+              st.status==='overdue' ? '<span class="badge badge-red">OVERDUE</span>' : '<span class="badge badge-amber">PENDING</span>';
             return `<tr>
               <td><b>${escapeHtml(s.fullName)}</b></td>
-              <td class="mono-cell" style="color:var(--text-faint)">${escapeHtml(s.studentId||'—')}</td>
-              <td class="mono-cell">${fmtDate(s.startDate)}</td>
+              <td><span class="badge badge-gray" style="font-weight:600">${escapeHtml(s.packageType || 'Custom')}</span></td>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="flex:1;background:var(--surface-3);height:6px;border-radius:3px;min-width:60px;overflow:hidden;">
+                    <div style="background:var(--blue);height:100%;width:${Number(s.progress || 0)}%"></div>
+                  </div>
+                  <span class="mono-cell" style="font-size:11px">${Number(s.progress || 0)}%</span>
+                </div>
+              </td>
               <td>${s.sessionDay? escapeHtml(s.sessionDay)+' · '+escapeHtml(s.sessionTime||'') : '<span style="color:var(--text-faint)">unset</span>'}</td>
               <td class="mono-cell">${fmtMoney(s.fee)}</td>
               <td>${statusBadge}</td>
@@ -247,29 +263,46 @@ function renderStudents(){
 function openStudentForm(id){
   const s = id ? state.students.find(x=>x.id===id) : null;
   openModal(`
-    <h3>${s? 'Edit Student' : 'Add Student'}</h3>
+    <h3>${s? 'Edit Student Details' : 'Register New Student'}</h3>
     <form id="studentForm">
-      <div class="field"><label>Full name</label><input type="text" name="fullName" value="${s?escapeHtml(s.fullName):''}"></div>
-      <div class="field"><label>ID number</label><input type="text" name="studentId" value="${s?escapeHtml(s.studentId||''):''}"></div>
+      <div class="field"><label>Full Name</label><input type="text" name="fullName" value="${s?escapeHtml(s.fullName):''}"></div>
       <div class="field-row">
-        <div class="field"><label>Start date</label><input type="date" name="startDate" value="${s?s.startDate:todayStr()}"></div>
-        <div class="field"><label>Monthly fee (ZAR)</label><input type="text" inputmode="decimal" name="fee" placeholder="e.g. 1500.00" value="${s?s.fee:''}"></div>
+        <div class="field"><label>ID Number</label><input type="text" name="studentId" value="${s?escapeHtml(s.studentId||''):''}"></div>
+        <div class="field"><label>Package Type</label>
+          <select name="packageType">
+            <option value="Beginner" ${s&&s.packageType==='Beginner'?'selected':''}>Beginner Mentorship — R1000/mo</option>
+            <option value="Advanced" ${s&&s.packageType==='Advanced'?'selected':''}>Advanced Mentorship — R2000/mo</option>
+            <option value="VIP" ${s&&s.packageType==='VIP'?'selected':''}>VIP Mentorship — R5000/mo</option>
+            <option value="Custom" ${s&&s.packageType==='Custom'?'selected':''}>Custom Arrangement</option>
+          </select>
+        </div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Session day</label>
+        <div class="field"><label>Phone Number</label><input type="text" name="phone" placeholder="e.g. 082 123 4567" value="${s?escapeHtml(s.phone||''):''}"></div>
+        <div class="field"><label>Email Address</label><input type="email" name="email" placeholder="name@domain.com" value="${s?escapeHtml(s.email||''):''}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Start Date</label><input type="date" name="startDate" value="${s?s.startDate:todayStr()}"></div>
+        <div class="field"><label>Monthly Fee (ZAR)</label><input type="text" inputmode="decimal" name="fee" placeholder="e.g. 1500.00" value="${s?s.fee:''}"></div>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Session Day</label>
           <select name="sessionDay"><option value="">— none —</option>${DAYS.map(d=>`<option ${s&&s.sessionDay===d?'selected':''}>${d}</option>`).join('')}</select>
         </div>
-        <div class="field"><label>Session time</label><input type="time" name="sessionTime" value="${s?s.sessionTime||'':''}"></div>
+        <div class="field"><label>Session Fixed Time</label><input type="time" name="sessionTime" value="${s?s.sessionTime||'':''}"></div>
       </div>
-      <div class="field"><label>Status</label>
-        <select name="status">
-          ${['active','paused','completed'].map(v=>`<option value="${v}" ${s&&s.status===v?'selected':''}>${v[0].toUpperCase()+v.slice(1)}</option>`).join('')}
-        </select>
+      <div class="field-row">
+        <div class="field"><label>Progress Completion Score (%)</label><input type="number" name="progress" min="0" max="100" value="${s?s.progress||0:0}"></div>
+        <div class="field"><label>Status</label>
+          <select name="status">
+            ${['active','paused','completed'].map(v=>`<option value="${v}" ${s&&s.status===v?'selected':''}>${v[0].toUpperCase()+v.slice(1)}</option>`).join('')}
+          </select>
+        </div>
       </div>
-      <div class="field"><label>Notes</label><textarea name="notes">${s?escapeHtml(s.notes||''):''}</textarea></div>
+      <div class="field"><label>Operational Notes</label><textarea name="notes">${s?escapeHtml(s.notes||''):''}</textarea></div>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary">${s?'Save Changes':'Add Student'}</button>
+        <button type="submit" class="btn btn-primary">${s?'Save Profile Changes':'Complete Registration'}</button>
       </div>
     </form>
   `);
@@ -281,14 +314,19 @@ function openStudentForm(id){
     const startDate = f.get('startDate');
     if(!startDate) return flagFieldError(e.target.querySelector('[name="startDate"]'), 'Start date is required');
     const fee = parseNum(f.get('fee'));
-    if(isNaN(fee) || fee<0) return flagFieldError(e.target.querySelector('[name="fee"]'), 'Enter a valid monthly fee, e.g. 1500 or 1500.00');
+    if(isNaN(fee) || fee<0) return flagFieldError(e.target.querySelector('[name="fee"]'), 'Enter a valid monthly fee asset parameter.');
+
     const data = {
       fullName,
       studentId: (f.get('studentId')||'').trim(),
+      packageType: f.get('packageType'),
+      phone: (f.get('phone')||'').trim(),
+      email: (f.get('email')||'').trim(),
       startDate,
       fee,
       sessionDay: f.get('sessionDay'),
       sessionTime: f.get('sessionTime'),
+      progress: parseInt(f.get('progress')) || 0,
       status: f.get('status'),
       notes: (f.get('notes')||'').trim()
     };
@@ -305,27 +343,37 @@ function openStudentDetail(id){
   const monthsActive = Math.max(1, monthsBetween(s.startDate, todayStr())+1);
   const payments = [...(s.payments||[])].sort((a,b)=>b.date.localeCompare(a.date));
   openModal(`
-    <h3>${escapeHtml(s.fullName)}</h3>
+    <h3>Mentee Profile — ${escapeHtml(s.fullName)}</h3>
     <div class="grid grid-3" style="margin-bottom:16px">
-      <div class="card stat-card" style="padding:12px"><div class="label">Total Paid</div><div class="value" style="font-size:17px">${fmtMoney(totalPaid)}</div></div>
-      <div class="card stat-card" style="padding:12px"><div class="label">Months Active</div><div class="value" style="font-size:17px">${monthsActive}</div></div>
-      <div class="card stat-card" style="padding:12px"><div class="label">Fee / mo</div><div class="value" style="font-size:17px">${fmtMoney(s.fee)}</div></div>
+      <div class="card stat-card" style="padding:12px"><div class="label">Total Generated</div><div class="value" style="font-size:17px">${fmtMoney(totalPaid)}</div></div>
+      <div class="card stat-card" style="padding:12px"><div class="label">Course Status</div><div class="value" style="font-size:17px">${s.progress || 0}% Done</div></div>
+      <div class="card stat-card" style="padding:12px"><div class="label">Fee Matrix</div><div class="value" style="font-size:17px">${fmtMoney(s.fee)}</div></div>
     </div>
-    <div class="field"><label>ID Number</label><div class="mono-cell">${escapeHtml(s.studentId||'—')}</div></div>
-    <div class="field"><label>Started</label><div class="mono-cell">${fmtDate(s.startDate)}</div></div>
-    ${s.notes? `<div class="field"><label>Notes</label><div style="font-size:13px;color:var(--text-dim)">${escapeHtml(s.notes)}</div></div>` : ''}
+    <div class="field-row">
+      <div class="field"><label>ID Number</label><div class="mono-cell">${escapeHtml(s.studentId||'—')}</div></div>
+      <div class="field"><label>Package Selection</label><div>${escapeHtml(s.packageType || 'Custom')} Package</div></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Phone Number</label><div>${escapeHtml(s.phone||'—')}</div></div>
+      <div class="field"><label>Email Address</label><div>${escapeHtml(s.email||'—')}</div></div>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Commenced Date</label><div class="mono-cell">${fmtDate(s.startDate)}</div></div>
+      <div class="field"><label>Assigned Slot</label><div>${s.sessionDay ? s.sessionDay + ' at ' + s.sessionTime : 'None Assigned'}</div></div>
+    </div>
+    ${s.notes? `<div class="field"><label>Operational Progress Notes</label><div style="font-size:13px;color:var(--text-dim);background:var(--surface-2);padding:10px;border-radius:6px;">${escapeHtml(s.notes)}</div></div>` : ''}
 
-    <div class="section-title" style="margin-top:20px">Payment History</div>
+    <div class="section-title" style="margin-top:20px">Historical Receipts Ledger</div>
     <div style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;">
-      ${payments.length===0? `<div style="padding:14px;color:var(--text-faint);font-size:13px">No payments recorded yet.</div>` :
+      ${payments.length===0? `<div style="padding:14px;color:var(--text-faint);font-size:13px">No historical transactions verified.</div>` :
       `<table><tbody>${payments.map(p=>`<tr><td class="mono-cell">${fmtDate(p.date)}</td><td class="mono-cell" style="text-align:right;color:var(--green)">${fmtMoney(p.amount)}</td></tr>`).join('')}</tbody></table>`}
     </div>
 
     <div class="modal-actions" style="justify-content:space-between;margin-top:18px">
-      <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')">Delete Student</button>
+      <button class="btn btn-danger btn-sm" onclick="deleteStudent('${s.id}')">Delete Record</button>
       <div style="display:flex;gap:8px">
-        <button class="btn btn-ghost btn-sm" onclick="openStudentForm('${s.id}')">Edit</button>
-        <button class="btn btn-primary btn-sm" onclick="openPaymentForm('${s.id}')">Record Payment</button>
+        <button class="btn btn-ghost btn-sm" onclick="openStudentForm('${s.id}')">Modify</button>
+        <button class="btn btn-primary btn-sm" onclick="openPaymentForm('${s.id}')">Receipt Payment</button>
       </div>
     </div>
   `);
@@ -334,15 +382,15 @@ function openStudentDetail(id){
 function openPaymentForm(studentId){
   const s = state.students.find(x=>x.id===studentId);
   openModal(`
-    <h3>Record Payment — ${escapeHtml(s.fullName)}</h3>
+    <h3>Record Incoming Payment — ${escapeHtml(s.fullName)}</h3>
     <form id="paymentForm">
       <div class="field-row">
-        <div class="field"><label>Date</label><input type="date" name="date" value="${todayStr()}"></div>
+        <div class="field"><label>Payment Date</label><input type="date" name="date" value="${todayStr()}"></div>
         <div class="field"><label>Amount (ZAR)</label><input type="text" inputmode="decimal" name="amount" value="${s.fee}"></div>
       </div>
       <div class="modal-actions">
-        <button type="button" class="btn btn-ghost" onclick="openStudentDetail('${s.id}')">Cancel</button>
-        <button type="submit" class="btn btn-primary">Save Payment</button>
+        <button type="button" class="btn btn-ghost" onclick="openStudentDetail('${s.id}')">Back</button>
+        <button type="submit" class="btn btn-primary">Process Receipt</button>
       </div>
     </form>
   `);
@@ -350,19 +398,19 @@ function openPaymentForm(studentId){
     e.preventDefault();
     const f = new FormData(e.target);
     const date = f.get('date');
-    if(!date) return flagFieldError(e.target.querySelector('[name="date"]'), 'Date is required');
+    if(!date) return flagFieldError(e.target.querySelector('[name="date"]'), 'Date required');
     const amount = parseNum(f.get('amount'));
-    if(isNaN(amount) || amount<=0) return flagFieldError(e.target.querySelector('[name="amount"]'), 'Enter a valid amount, e.g. 1500 or 1500.00');
+    if(isNaN(amount) || amount<=0) return flagFieldError(e.target.querySelector('[name="amount"]'), 'Enter valid value');
     s.payments = s.payments||[];
     s.payments.push({date, amount});
-    saveState(); showToast('Payment recorded'); render(); openStudentDetail(s.id);
+    saveState(); showToast('Payment successfully recorded'); render(); openStudentDetail(s.id);
   });
 }
 
 function deleteStudent(id){
-  if(!confirm('Delete this student? This removes their payment history too.')) return;
+  if(!confirm('Purge this record completely? All payment logs will be removed.')) return;
   state.students = state.students.filter(s=>s.id!==id);
-  saveState(); closeModal(); showToast('Student removed'); render();
+  saveState(); closeModal(); showToast('Student removed from engine'); render();
 }
 
 /* =================== 3. SCHEDULE COMPONENT =================== */
@@ -371,9 +419,18 @@ function renderSchedule(){
   const dow = today.getDay(); const todayIdx = dow===0?6:dow-1;
   const upcomingEvents = [...state.events].filter(e=>e.date>=todayStr()).sort((a,b)=> (a.date+a.time).localeCompare(b.date+b.time));
 
+  // Simulating in-app reminders based on time blocks
+  setTimeout(() => {
+    const currentHrMin = new Date().toTimeString().slice(0,5);
+    const matchSess = state.students.find(s=>s.status==='active' && s.sessionTime && s.sessionDay === DAYS[todayIdx]);
+    if (matchSess && matchSess.sessionTime.substring(0,2) === currentHrMin.substring(0,2)) {
+      showToast(`${matchSess.fullName}'s mentorship starts imminently.`, false);
+    }
+  }, 1000);
+
   return `
     <div class="page-head">
-      <div><h1>Schedule</h1><p>Recurring weekly sessions plus one-off bookings. Reminders show while this app is open.</p></div>
+      <div><h1>Schedule &amp; Calendar</h1><p>Weekly fixed cohort time allocations and single custom events.</p></div>
       <button class="btn btn-primary" onclick="openEventForm()">+ One-off Session</button>
     </div>
 
@@ -388,9 +445,9 @@ function renderSchedule(){
       }).join('')}
     </div>
 
-    <div class="section-title">Upcoming One-off Sessions</div>
+    <div class="section-title">Upcoming Appointments &amp; Make-Ups</div>
     <div class="card" style="${upcomingEvents.length? 'padding:0':''}">
-      ${upcomingEvents.length===0? `<div class="empty-state"><div class="et">Nothing extra booked</div><div class="ed">Add a one-off session for a make-up class or a new lead call.</div></div>` :
+      ${upcomingEvents.length===0? `<div class="empty-state"><div class="et">No auxiliary bookings found</div><div class="ed">Log standalone appointments or lead strategy calls.</div></div>` :
       `<table><tbody>
         ${upcomingEvents.map(ev=>`<tr>
           <td class="mono-cell" style="width:90px;color:var(--text-faint)">${fmtDateShort(ev.date)}</td>
@@ -405,16 +462,16 @@ function renderSchedule(){
 
 function openEventForm(){
   openModal(`
-    <h3>Add One-off Session</h3>
+    <h3>Schedule One-off Session</h3>
     <form id="eventForm">
-      <div class="field"><label>Title</label><input type="text" name="title" placeholder="e.g. Make-up class — Thabo"></div>
+      <div class="field"><label>Session Title / Focus</label><input type="text" name="title" placeholder="e.g. Lead Follow-Up — Sarah"></div>
       <div class="field-row">
-        <div class="field"><label>Date</label><input type="date" name="date" value="${todayStr()}"></div>
-        <div class="field"><label>Time</label><input type="time" name="time"></div>
+        <div class="field"><label>Date Target</label><input type="date" name="date" value="${todayStr()}"></div>
+        <div class="field"><label>Start Time</label><input type="time" name="time"></div>
       </div>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary">Add Session</button>
+        <button type="submit" class="btn btn-primary">Lock Appointment</button>
       </div>
     </form>
   `);
@@ -422,13 +479,13 @@ function openEventForm(){
     e.preventDefault();
     const f = new FormData(e.target);
     const title = (f.get('title')||'').trim();
-    if(!title) return flagFieldError(e.target.querySelector('[name="title"]'), 'Title is required');
+    if(!title) return flagFieldError(e.target.querySelector('[name="title"]'), 'Context description title required');
     const date = f.get('date');
-    if(!date) return flagFieldError(e.target.querySelector('[name="date"]'), 'Date is required');
+    if(!date) return flagFieldError(e.target.querySelector('[name="date"]'), 'Date required');
     const time = f.get('time');
-    if(!time) return flagFieldError(e.target.querySelector('[name="time"]'), 'Time is required');
+    if(!time) return flagFieldError(e.target.querySelector('[name="time"]'), 'Time required');
     state.events.push({id:uid(), title, date, time});
-    saveState(); closeModal(); showToast('Session added'); render();
+    saveState(); closeModal(); showToast('One-off appointment logged'); render();
   });
 }
 
@@ -445,11 +502,16 @@ function renderJournal(){
   const decided = wins.length+losses.length;
   const winRate = decided? wins.length/decided*100 : 0;
   const totalPnl = state.trades.reduce((s,t)=>s+Number(t.pnl||0),0);
-  const avgWin = wins.length? wins.reduce((s,t)=>s+Number(t.pnl),0)/wins.length : 0;
-  const avgLoss = losses.length? losses.reduce((s,t)=>s+Number(t.pnl),0)/losses.length : 0;
-  const grossWin = wins.reduce((s,t)=>s+Number(t.pnl),0);
-  const grossLoss = Math.abs(losses.reduce((s,t)=>s+Number(t.pnl),0));
-  const profitFactor = grossLoss>0 ? (grossWin/grossLoss) : (grossWin>0? Infinity : 0);
+
+  // Custom Analytics Fields
+  let bestTrade = 0, worstTrade = 0, totalR = 0;
+  state.trades.forEach(t => {
+    const val = Number(t.pnl || 0);
+    if(val > bestTrade) bestTrade = val;
+    if(val < worstTrade) worstTrade = val;
+    totalR += Number(t.rMultiplier || 0);
+  });
+  const avgRR = decided ? (totalR / decided) : 0;
 
   const byPair = {};
   state.trades.forEach(t=>{
@@ -464,36 +526,36 @@ function renderJournal(){
 
   return `
     <div class="page-head">
-      <div><h1>Trading Journal</h1><p>Every trade, every pair, every result.</p></div>
+      <div><h1>Personal Trading Journal</h1><p>Track high-performance executions, risk targets, strategy layout URLs and R-multiples.</p></div>
       <button class="btn btn-primary" onclick="openTradeForm()">+ Add Trade</button>
     </div>
 
     <div class="grid grid-4">
       <div class="card stat-card"><div class="label">Win Rate</div><div class="value ${winRate>=50?'up':'down'}">${decided?winRate.toFixed(1):'—'}%</div><div class="sub">${wins.length}W / ${losses.length}L</div></div>
-      <div class="card stat-card"><div class="label">Total P&amp;L</div><div class="value ${totalPnl>=0?'up':'down'}">${fmtMoney(totalPnl)}</div><div class="sub">${state.trades.length} trades logged</div></div>
-      <div class="card stat-card"><div class="label">Avg Win / Avg Loss</div><div class="value" style="font-size:17px"><span class="up">${fmtMoney(avgWin)}</span> <span style="color:var(--text-faint)">/</span> <span class="down">${fmtMoney(avgLoss)}</span></div></div>
-      <div class="card stat-card"><div class="label">Profit Factor</div><div class="value ${profitFactor>=1?'up':'down'}">${isFinite(profitFactor)?profitFactor.toFixed(2):'∞'}</div><div class="sub">Gross win ÷ gross loss</div></div>
+      <div class="card stat-card"><div class="label">Total P&amp;L Matrix</div><div class="value ${totalPnl>=0?'up':'down'}">${fmtMoney(totalPnl)}</div><div class="sub">${state.trades.length} total trades logged</div></div>
+      <div class="card stat-card"><div class="label">Average R:R Outcome</div><div class="value neutral">${avgRR >= 0 ? '+' : ''}${avgRR.toFixed(2)}R</div><div class="sub">Net cumulative performance</div></div>
+      <div class="card stat-card"><div class="label">Extremes (Best/Worst)</div><div class="value" style="font-size:14px;line-height:24px;"><span class="up">Max: ${fmtMoney(bestTrade)}</span><br><span class="down">Min: ${fmtMoney(worstTrade)}</span></div></div>
     </div>
 
-    <div class="section-title">Equity Curve</div>
-    <div class="card">${points.length<2? `<div class="empty-state"><div class="ed">Log a few trades to see your equity curve.</div></div>` : curveSvg}</div>
+    <div class="section-title">Performance Equity Curve</div>
+    <div class="card">${points.length<2? `<div class="empty-state"><div class="ed">Log executions to graph performance curves.</div></div>` : curveSvg}</div>
 
     <div class="grid grid-2" style="margin-top:30px;align-items:start">
       <div>
-        <div class="section-title">By Currency Pair</div>
+        <div class="section-title">By Currency Pair Performance</div>
         <div class="card" style="${pairRows.length?'padding:0':''}">
           ${pairRows.length===0? `<div class="empty-state"><div class="ed">No pairs traded yet.</div></div>` :
-          `<table><tbody>${pairRows.map(([pair,d])=>`<tr><td class="pair-tag">${escapeHtml(pair)}</td><td class="mono-cell" style="color:var(--text-faint)">${d.count} trades</td><td class="mono-cell" style="text-align:right;color:${d.pnl>=0?'var(--green)':'var(--red)'}">${fmtMoney(d.pnl)}</td></tr>`).join('')}</tbody></table>`}
+          `<table><tbody>${pairRows.map(([pair,d])=>`<tr><td class="pair-tag">${escapeHtml(pair)}</td><td class="mono-cell" style="color:var(--text-faint)">${d.count} executions</td><td class="mono-cell" style="text-align:right;color:${d.pnl>=0?'var(--green)':'var(--red)'}">${fmtMoney(d.pnl)}</td></tr>`).join('')}</tbody></table>`}
         </div>
       </div>
       <div>
-        <div class="section-title">All Trades</div>
+        <div class="section-title">All Logged Executions</div>
         <div class="card" style="${trades.length?'padding:0':''};max-height:340px;overflow-y:auto">
-          ${trades.length===0? `<div class="empty-state"><div class="et">No trades yet</div><div class="ed">Log your first trade to start building stats.</div></div>` :
+          ${trades.length===0? `<div class="empty-state"><div class="et">No trades yet</div><div class="ed">Log your first trade execution to begin engine calculation.</div></div>` :
           `<table><tbody>
             ${trades.map(t=>`<tr style="cursor:pointer" onclick="openTradeForm('${t.id}')">
               <td class="mono-cell" style="color:var(--text-faint);width:64px">${fmtDateShort(t.date)}</td>
-              <td class="pair-tag">${escapeHtml(t.pair)}</td>
+              <td class="pair-tag">${escapeHtml(t.pair)} <span style="font-size:10px;color:var(--text-faint);font-weight:400;">(${t.rMultiplier >= 0 ? '+' : ''}${t.rMultiplier}R)</span></td>
               <td><span class="badge ${t.direction==='buy'?'badge-green':'badge-red'}">${t.direction.toUpperCase()}</span></td>
               <td class="mono-cell" style="text-align:right;color:${Number(t.pnl)>=0?'var(--green)':'var(--red)'}">${fmtMoney(t.pnl)}</td>
             </tr>`).join('')}
@@ -527,33 +589,39 @@ function buildSparkline(points){
 function openTradeForm(id){
   const t = id ? state.trades.find(x=>x.id===id) : null;
   openModal(`
-    <h3>${t?'Edit Trade':'Add Trade'}</h3>
+    <h3>${t?'Modify Execution Log':'Log Active Market Execution'}</h3>
     <form id="tradeForm">
       <div class="field-row">
         <div class="field"><label>Date</label><input type="date" name="date" value="${t?t.date:todayStr()}"></div>
-        <div class="field"><label>Pair</label><input type="text" name="pair" placeholder="EUR/USD" value="${t?escapeHtml(t.pair):''}" style="text-transform:uppercase"></div>
+        <div class="field"><label>Currency Pair</label><input type="text" name="pair" placeholder="e.g. XAU/USD" value="${t?escapeHtml(t.pair):''}" style="text-transform:uppercase"></div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Direction</label>
+        <div class="field"><label>Order Direction</label>
           <select name="direction"><option value="buy" ${t&&t.direction==='buy'?'selected':''}>Buy / Long</option><option value="sell" ${t&&t.direction==='sell'?'selected':''}>Sell / Short</option></select>
         </div>
-        <div class="field"><label>Lot size</label><input type="text" inputmode="decimal" name="lotSize" value="${t?t.lotSize||'':''}"></div>
+        <div class="field"><label>Allocated Lot Size</label><input type="text" inputmode="decimal" name="lotSize" value="${t?t.lotSize||'':''}"></div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Entry price</label><input type="text" inputmode="decimal" name="entry" value="${t?t.entry||'':''}"></div>
-        <div class="field"><label>Exit price</label><input type="text" inputmode="decimal" name="exit" value="${t?t.exit||'':''}"></div>
+        <div class="field"><label>Entry Price</label><input type="text" inputmode="decimal" name="entry" value="${t?t.entry||'':''}"></div>
+        <div class="field"><label>Exit Price Trigger</label><input type="text" inputmode="decimal" name="exit" value="${t?t.exit||'':''}"></div>
       </div>
       <div class="field-row">
-        <div class="field"><label>Stop loss</label><input type="text" inputmode="decimal" name="sl" value="${t?t.sl||'':''}"></div>
-        <div class="field"><label>Take profit</label><input type="text" inputmode="decimal" name="tp" value="${t?t.tp||'':''}"></div>
+        <div class="field"><label>Stop Loss (SL)</label><input type="text" inputmode="decimal" name="sl" value="${t?t.sl||'':''}"></div>
+        <div class="field"><label>Take Profit (TP)</label><input type="text" inputmode="decimal" name="tp" value="${t?t.tp||'':''}"></div>
       </div>
-      <div class="field"><label>P&amp;L (ZAR — negative for a loss)</label><input type="text" inputmode="decimal" name="pnl" value="${t?t.pnl:''}"></div>
-      <div class="field"><label>Notes</label><textarea name="notes" placeholder="Setup, reasoning, what you'd do differently...">${t?escapeHtml(t.notes||''):''}</textarea></div>
+      <div class="field-row">
+        <div class="field"><label>Risk Exposure Target (%)</label><input type="text" inputmode="decimal" name="riskPercent" placeholder="e.g. 1" value="${t?t.riskPercent||'':''}"></div>
+        <div class="field"><label>Result Outcome R-Multiple</label><input type="text" inputmode="numeric" name="rMultiplier" placeholder="e.g. +2 or -1" value="${t?t.rMultiplier||'':''}"></div>
+      </div>
+      <div class="field"><label>Net Realized P&amp;L (ZAR — use negative sign for losses)</label><input type="text" inputmode="decimal" name="pnl" placeholder="e.g. 4500 or -1200" value="${t?t.pnl:''}"></div>
+      <div class="field"><label>Chart Setup Screenshot URL</label><input type="text" name="screenshotUrl" placeholder="https://tradingview.com/x/..." value="${t?escapeHtml(t.screenshotUrl||''):''}"></div>
+      ${t && t.screenshotUrl ? `<div style="margin-bottom:12px;"><a href="${escapeHtml(t.screenshotUrl)}" target="_blank" class="badge badge-green" style="text-decoration:none">View Attached Chart Layout ↗</a></div>` : ''}
+      <div class="field"><label>Confluence Notes</label><textarea name="notes" placeholder="Market structure details, session type, break of character confirmations...">${t?escapeHtml(t.notes||''):''}</textarea></div>
       <div class="modal-actions" style="justify-content:${t?'space-between':'flex-end'}">
-        ${t?`<button type="button" class="btn btn-danger btn-sm" onclick="deleteTrade('${t.id}')">Delete</button>`:''}
+        ${t?`<button type="button" class="btn btn-danger btn-sm" onclick="deleteTrade('${t.id}')">Delete Log</button>`:''}
         <div style="display:flex;gap:8px">
           <button type="button" class="btn btn-ghost" onclick="closeModal()">Cancel</button>
-          <button type="submit" class="btn btn-primary">${t?'Save Changes':'Add Trade'}</button>
+          <button type="submit" class="btn btn-primary">${t?'Save Modifications':'Commit To Journal'}</button>
         </div>
       </div>
     </form>
@@ -562,26 +630,31 @@ function openTradeForm(id){
     e.preventDefault();
     const f = new FormData(e.target);
     const date = f.get('date');
-    if(!date) return flagFieldError(e.target.querySelector('[name="date"]'), 'Date is required');
+    if(!date) return flagFieldError(e.target.querySelector('[name="date"]'), 'Date required');
     const pair = (f.get('pair')||'').trim().toUpperCase();
-    if(!pair) return flagFieldError(e.target.querySelector('[name="pair"]'), 'Pair is required, e.g. EUR/USD');
+    if(!pair) return flagFieldError(e.target.querySelector('[name="pair"]'), 'Pair asset descriptor required');
     const pnl = parseNum(f.get('pnl'));
-    if(isNaN(pnl)) return flagFieldError(e.target.querySelector('[name="pnl"]'), 'Enter a valid P&L amount, e.g. 450 or -120.50');
+    if(isNaN(pnl)) return flagFieldError(e.target.querySelector('[name="pnl"]'), 'Valid P&L balance confirmation parameter required.');
+
     const lotSize = parseNum(f.get('lotSize')); const entry = parseNum(f.get('entry')); const exit = parseNum(f.get('exit'));
     const sl = parseNum(f.get('sl')); const tp = parseNum(f.get('tp'));
+
     const data = {
       date, pair, direction:f.get('direction'),
       lotSize:isNaN(lotSize)?0:lotSize, entry:isNaN(entry)?0:entry, exit:isNaN(exit)?0:exit,
-      sl:isNaN(sl)?0:sl, tp:isNaN(tp)?0:tp, pnl, notes:(f.get('notes')||'').trim()
+      sl:isNaN(sl)?0:sl, tp:isNaN(tp)?0:tp,
+      riskPercent: parseNum(f.get('riskPercent'))||0,
+      rMultiplier: parseNum(f.get('rMultiplier'))||0,
+      pnl, screenshotUrl: (f.get('screenshotUrl')||'').trim(), notes:(f.get('notes')||'').trim()
     };
-    if(t){ Object.assign(t,data); showToast('Trade updated'); }
-    else { state.trades.push(Object.assign({id:uid()}, data)); showToast('Trade logged'); }
+    if(t){ Object.assign(t,data); showToast('Trade metrics updated'); }
+    else { state.trades.push(Object.assign({id:uid()}, data)); showToast('Execution captured safely'); }
     saveState(); closeModal(); render();
   });
 }
 
 function deleteTrade(id){
-  if(!confirm('Delete this trade?')) return;
+  if(!confirm('Delete execution log permanently?')) return;
   state.trades = state.trades.filter(t=>t.id!==id);
   saveState(); closeModal(); showToast('Trade deleted'); render();
 }
@@ -593,12 +666,20 @@ function renderIncome(){
   const monthStart = new Date(base.getFullYear(), base.getMonth(), 1);
   const monthLabel = monthStart.toLocaleDateString('en-ZA', {month:'long', year:'numeric'});
 
-  let expected=0, received=0;
-  const rows = state.students.filter(s=>s.status!=='completed' || true).map(s=>{
+  let expected = 0, received = 0;
+  const rows = state.students.map(s=>{
     const st = studentMonthStatus(s, monthStart);
-    if(st){ expected += Number(s.fee||0); received += st.paidAmount; }
+    if(st && s.status === 'active'){ expected += Number(s.fee||0); received += st.paidAmount; }
     return {s, st};
   }).filter(r=>r.st);
+
+  // Dynamic Total Historical Revenue Generated calculation across all student payment arrays
+  let grandTotalRevenue = 0;
+  state.students.forEach(s => {
+    if(s.payments) {
+      s.payments.forEach(p => grandTotalRevenue += Number(p.amount || 0));
+    }
+  });
 
   const months = [];
   for(let i=5;i>=0;i--){
@@ -615,7 +696,7 @@ function renderIncome(){
 
   return `
     <div class="page-head">
-      <div><h1>Income</h1><p>Monthly income calculated from recorded student payments.</p></div>
+      <div><h1>Revenue &amp; Income Analytics</h1><p>Track cash flows, client balances, outstanding collection requirements, and billing health.</p></div>
       <div style="display:flex;align-items:center;gap:10px">
         <button class="btn btn-ghost btn-icon" onclick="incomeMonthOffset--;render()">←</button>
         <div class="mono-cell" style="min-width:150px;text-align:center;font-weight:700">${monthLabel}</div>
@@ -624,12 +705,12 @@ function renderIncome(){
     </div>
 
     <div class="grid grid-3">
-      <div class="card stat-card"><div class="label">Expected</div><div class="value">${fmtMoney(expected)}</div></div>
-      <div class="card stat-card"><div class="label">Received</div><div class="value up">${fmtMoney(received)}</div></div>
-      <div class="card stat-card"><div class="label">Outstanding</div><div class="value ${expected-received>0?'down':'up'}">${fmtMoney(Math.max(0,expected-received))}</div></div>
+      <div class="card stat-card"><div class="label">Expected This Month</div><div class="value">${fmtMoney(expected)}</div></div>
+      <div class="card stat-card"><div class="label">Total Collected (Current Month)</div><div class="value up">${fmtMoney(received)}</div></div>
+      <div class="card stat-card"><div class="label">Total Revenue Generated (All-Time)</div><div class="value up" style="color:var(--blue);">${fmtMoney(grandTotalRevenue)}</div></div>
     </div>
 
-    <div class="section-title">Last 6 Months</div>
+    <div class="section-title">Rolling Historical Receipts (Last 6 Months)</div>
     <div class="card">
       <div style="display:flex;align-items:flex-end;gap:14px;height:140px">
         ${months.map(m=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end">
@@ -640,15 +721,15 @@ function renderIncome(){
       </div>
     </div>
 
-    <div class="section-title">Breakdown by Student</div>
+    <div class="section-title">Breakdown by Individual Student Account</div>
     <div class="card" style="${rows.length?'padding:0':''}">
-      ${rows.length===0? `<div class="empty-state"><div class="ed">No active students for this month.</div></div>` :
+      ${rows.length===0? `<div class="empty-state"><div class="ed">No active accounts detected for this period.</div></div>` :
       `<table><tbody>
         ${rows.map(({s,st})=>`<tr>
-          <td>${escapeHtml(s.fullName)}</td>
-          <td class="mono-cell" style="color:var(--text-faint)">due ${fmtDate(st.due)}</td>
+          <td><b>${escapeHtml(s.fullName)}</b></td>
+          <td class="mono-cell" style="color:var(--text-faint)">Anniversary Date: ${fmtDateShort(s.startDate)}</td>
           <td class="mono-cell" style="text-align:right">${fmtMoney(st.paidAmount)} / ${fmtMoney(s.fee)}</td>
-          <td style="text-align:right">${st.status==='paid'?'<span class="badge badge-green">PAID</span>':st.status==='overdue'?'<span class="badge badge-red">OVERDUE</span>':'<span class="badge badge-amber">UPCOMING</span>'}</td>
+          <td style="text-align:right">${st.status==='paid'?'<span class="badge badge-green">PAID</span>':st.status==='overdue'?'<span class="badge badge-red">OVERDUE</span>':'<span class="badge badge-amber">PENDING</span>'}</td>
         </tr>`).join('')}
       </tbody></table>`}
     </div>
