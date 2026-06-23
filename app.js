@@ -1,3 +1,11 @@
+/* =================== CLOUD DATABASE CONNECTION METRICS =================== */
+const SUPABASE_URL = "https://wdqtgwdnbbeazlzayxwa.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndkcXRnd2RuYmJlYXpsemF5xHdhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMzA3NjgsImV4cCI6MjA5NzgwNjc2OH0.ohUB3LXQ-wrDXnBbshYMFLycv3m3UY47RlQsWPLLsN4";
+
+// Initialize the remote Supabase client configuration
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const RECORD_ID = "forex_ceo_main";
+
 /* =================== APP CONTROLLER & STATE =================== */
 let state = { students: [], trades: [], events: [], leads: [], settings: { currency: 'ZAR' } };
 let activeTab = 'dashboard';
@@ -7,44 +15,53 @@ let incomeMonthOffset = 0;
 const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 const DAYS_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 
-/* =================== STORAGE FALLBACK =================== */
-const storageAdapter = {
-  get: async (key) => {
-    if (window.storage && typeof window.storage.get === 'function') {
-      return await window.storage.get(key, false);
-    }
-    return { value: localStorage.getItem(key) };
-  },
-  set: async (key, value) => {
-    if (window.storage && typeof window.storage.set === 'function') {
-      return await window.storage.set(key, value, false);
-    }
-    return localStorage.setItem(key, value);
-  }
-};
-
-/* =================== STORAGE CORE FOR APP DATA =================== */
+/* =================== CLOUD DATABASE DATA PERSISTENCE =================== */
 async function loadState(){
-  try{
-    const res = await storageAdapter.get('app-data');
-    if(res && res.value){
-      const parsed = JSON.parse(res.value);
-      state = Object.assign({students:[],trades:[],events:[],leads:[],settings:{currency:'ZAR'}}, parsed);
+  try {
+    const { data, error } = await supabase
+      .from('application_core')
+      .select('state_data')
+      .eq('id', RECORD_ID)
+      .single();
+
+    if (error) throw error;
+
+    if (data && data.state_data) {
+      state = Object.assign({students:[],trades:[],events:[],leads:[],settings:{currency:'ZAR'}}, data.state_data);
     }
-  }catch(e){
-    console.log("Error loading state:", e);
+  } catch (e) {
+    console.error("Cloud fetch sync failure:", e);
+    showToast("Reading device cache backup", false);
+
+    // Safety Backup: Retrieve local cache data if network connection dips
+    const localBackup = localStorage.getItem('app-data-backup');
+    if (localBackup) state = JSON.parse(localBackup);
   }
 }
 
 function saveState(){
   clearTimeout(saveTimer);
+  // Debounce uploads by 400ms to throttle unnecessary network round-trips
   saveTimer = setTimeout(async () => {
-    try{
-      await storageAdapter.set('app-data', JSON.stringify(state));
-    } catch(e){
-      showToast('Could not save data locally', true);
+    try {
+      // Refresh local safety backup instantly on the device
+      localStorage.setItem('app-data-backup', JSON.stringify(state));
+
+      // Stream full unified data metrics payload out to the cloud table
+      const { error } = await supabase
+        .from('application_core')
+        .upsert({
+          id: RECORD_ID,
+          state_data: state,
+          updated_at: new Date().toISOString()
+        });
+
+      if (error) throw error;
+    } catch(e) {
+      console.error("Cloud push sync failure:", e);
+      showToast('Sync error. Local backup updated.', true);
     }
-  }, 250);
+  }, 400);
 }
 
 /* =================== NAVIGATION PANEL =================== */
@@ -58,6 +75,8 @@ document.getElementById('nav').addEventListener('click', e=>{
 function render(){
   document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('active', b.dataset.tab===activeTab));
   const c = document.getElementById('content');
+  if(!c) return;
+
   if(activeTab==='dashboard') c.innerHTML = renderDashboard();
   else if(activeTab==='students') c.innerHTML = renderStudents();
   else if(activeTab==='schedule') c.innerHTML = renderSchedule();
@@ -70,8 +89,10 @@ function render(){
 document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
 document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
 
-// start the app
-(async function init(){
-  await loadState();
-  render();
-})();
+// Fire up core operational data streams
+if (document.getElementById('nav')) {
+  (async function init(){
+    await loadState();
+    render();
+  })();
+}
