@@ -3,16 +3,19 @@ import { fmtZAR } from '../utils/helpers';
 
 export default function Students({ students = [], onSave, onLogPayment }) {
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingStudentId, setEditingStudentId] = useState(null);
+
+  // Core Form Fields State
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [idNumber, setIdNumber] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [teamsLink, setTeamsLink] = useState("");
   const [monthlyFee, setMonthlyFee] = useState("");
-  const [sessionTime, setSessionTime] = useState("18:00");
+  const [sessionTime, setSessionTime] = useState("12:00");
   const [selectedDays, setSelectedDays] = useState([]);
 
-  // Payment Tracking States
+  // Payment Logging States
   const [activeStudentId, setActiveStudentId] = useState("");
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
@@ -28,11 +31,37 @@ export default function Students({ students = [], onSave, onLogPayment }) {
     }
   };
 
+  // Populate form fields to modify an existing profile record
+  const startEdit = (student) => {
+    setEditingStudentId(student.id);
+    setFullName(student.fullName || "");
+    setEmail(student.email || "");
+    setIdNumber(student.idNumber || "");
+    setPhoneNumber(student.phoneNumber || "");
+    setTeamsLink(student.teamsLink || "");
+    setMonthlyFee(student.monthlyFee || "");
+    setSessionTime(student.sessionTime || "12:00");
+    setSelectedDays(student.days || []);
+    setShowAddForm(true);
+  };
+
+  const handleCancelForm = () => {
+    setEditingStudentId(null);
+    setFullName("");
+    setEmail("");
+    setIdNumber("");
+    setPhoneNumber("");
+    setTeamsLink("");
+    setMonthlyFee("");
+    setSelectedDays([]);
+    setShowAddForm(false);
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!onSave) return;
 
-    onSave({
+    const payload = {
       fullName: fullName.trim(),
       email: email.trim(),
       idNumber: idNumber.trim(),
@@ -42,19 +71,33 @@ export default function Students({ students = [], onSave, onLogPayment }) {
       sessionTime,
       days: selectedDays,
       active: true,
-      enrollmentDate: new Date().toISOString().slice(0, 10),
-      payments: []
-    });
+    };
 
-    // Reset Fields
-    setFullName("");
-    setEmail("");
-    setIdNumber("");
-    setPhoneNumber("");
-    setTeamsLink("");
-    setMonthlyFee("");
-    setSelectedDays([]);
-    setShowAddForm(false);
+    if (editingStudentId) {
+      // Keep existing properties intact on update
+      const existing = students.find(s => s.id === editingStudentId);
+      onSave({ 
+        ...existing,
+        ...payload,
+        id: editingStudentId 
+      });
+    } else {
+      onSave({
+        ...payload,
+        enrollmentDate: new Date().toISOString().slice(0, 10),
+        payments: []
+      });
+    }
+
+    handleCancelForm();
+  };
+
+  const handleDelete = (studentId, name) => {
+    if (window.confirm(`Are you absolutely sure you want to completely delete ${name}? This action cannot be undone.`)) {
+      // In our current code convention, we toggle 'active: false' or call a delete mutation handler
+      // We'll update the active flag to clear it off the main view row natively
+      onSave({ id: studentId, active: false });
+    }
   };
 
   const handlePaymentSubmit = (e) => {
@@ -66,7 +109,6 @@ export default function Students({ students = [], onSave, onLogPayment }) {
     setActiveStudentId("");
   };
 
-  // Helper to calculate next upcoming payment date (1 month after the last payment or enrollment)
   const getNextPaymentDate = (student) => {
     if (!student.payments || student.payments.length === 0) {
       if (!student.enrollmentDate) return "—";
@@ -74,12 +116,13 @@ export default function Students({ students = [], onSave, onLogPayment }) {
       enroll.setMonth(enroll.getMonth() + 1);
       return enroll.toISOString().slice(0, 10);
     }
-    // Sort to find latest payment date
     const sortedPayments = [...student.payments].sort((a, b) => new Date(b.date) - new Date(a.date));
     const latest = new Date(sortedPayments[0].date);
     latest.setMonth(latest.getMonth() + 1);
     return latest.toISOString().slice(0, 10);
   };
+
+  const activeRoster = students.filter(s => s.active !== false);
 
   return (
     <div className="fceo-section">
@@ -88,15 +131,17 @@ export default function Students({ students = [], onSave, onLogPayment }) {
           <h2>Mentorship Roster Management</h2>
           <p className="fceo-muted">Provision student accounts, map corporate metadata, and audit historical tuition collections.</p>
         </div>
-        <button type="button" className="fceo-btn primary" onClick={() => setShowAddForm(!showAddForm)}>
-          {showAddForm ? "Close Form" : "＋ Add New Student"}
-        </button>
+        {!showAddForm && (
+          <button type="button" className="fceo-btn primary" onClick={() => setShowAddForm(true)}>
+            ＋ Add New Student
+          </button>
+        )}
       </div>
 
-      {/* Expanded Student Onboarding Form Grid */}
+      {/* Embedded Input Form for Adding or Editing profiles */}
       {showAddForm && (
-        <div className="fceo-card" style={{ marginBottom: '24px', animation: 'fadeIn 0.2s ease-in-out' }}>
-          <h3>👤 Provision Full Student Identity Account</h3>
+        <div className="fceo-card" style={{ marginBottom: '24px', animation: 'fadeIn 0.2s ease-in-out', border: editingStudentId ? '1px solid #58a6ff' : '1px solid #30363d' }}>
+          <h3>{editingStudentId ? `✏️ Modify Details: ${fullName}` : "👤 Provision Full Student Identity Account"}</h3>
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '16px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
               <label className="fceo-field">
@@ -124,7 +169,7 @@ export default function Students({ students = [], onSave, onLogPayment }) {
               </label>
               <label className="fceo-field">
                 <span>Monthly Fee Tier (ZAR)</span>
-                <input type="number" placeholder="3500" value={monthlyFee} onChange={e => setMonthlyFee(e.target.value)} required />
+                <input type="number" placeholder="2000" value={monthlyFee} onChange={e => setMonthlyFee(e.target.value)} required />
               </label>
               <label className="fceo-field">
                 <span>Fixed Slot Time</span>
@@ -149,28 +194,36 @@ export default function Students({ students = [], onSave, onLogPayment }) {
               </div>
             </div>
 
-            <button type="submit" className="fceo-btn primary" style={{ alignSelf: 'start', padding: '12px 24px' }}>
-              Save Student Profile
-            </button>
+            <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+              <button type="submit" className="fceo-btn primary" style={{ padding: '12px 24px' }}>
+                {editingStudentId ? "Commit Changes" : "Save Secure Account to Cloud"}
+              </button>
+              <button type="button" className="fceo-btn secondary" onClick={handleCancelForm} style={{ padding: '12px 24px' }}>
+                Cancel
+              </button>
+            </div>
           </form>
         </div>
       )}
 
-      {/* Record Payment Sub-Panel Form */}
+      {/* Flexible Payment Panel — Works for logging current collections OR backdating past historical payments */}
       {activeStudentId && (
         <div className="fceo-card" style={{ marginBottom: '24px', border: '1px solid #00e5a0' }}>
-          <h3>💰 Log Tuition Receipt for {(students.find(s => s.id === activeStudentId))?.fullName}</h3>
-          <form onSubmit={handlePaymentSubmit} style={{ display: 'flex', gap: '16px', marginTop: '12px', alignItems: 'end' }}>
+          <h3>💰 Log Tuition Receipt (Current or Past Backdated History)</h3>
+          <p className="fceo-muted" style={{ fontSize: '13px', marginTop: '-8px' }}>
+            To add a past historical transaction manually, simply select the exact calendar day the payment was made below.
+          </p>
+          <form onSubmit={handlePaymentSubmit} style={{ display: 'flex', gap: '16px', marginTop: '16px', alignItems: 'end', flexWrap: 'wrap' }}>
             <label className="fceo-field" style={{ maxWidth: '200px' }}>
               <span>ZAR Amount Collected</span>
-              <input type="number" placeholder="e.g. 1500" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} required />
+              <input type="number" placeholder="e.g. 2000" value={paymentAmount} onChange={e => setPaymentAmount(e.target.value)} required />
             </label>
             <label className="fceo-field" style={{ maxWidth: '200px' }}>
-              <span>Collection Date</span>
+              <span>Payment Clearing Date</span>
               <input type="date" value={paymentDate} onChange={e => setPaymentDate(e.target.value)} required />
             </label>
-            <button type="submit" className="fceo-btn primary">Log Payment</button>
-            <button type="button" className="fceo-btn secondary" onClick={() => setActiveStudentId("")}>Cancel</button>
+            <button type="submit" className="fceo-btn primary" style={{ height: '44px' }}>Record Entry</button>
+            <button type="button" className="fceo-btn secondary" onClick={() => setActiveStudentId("")} style={{ height: '44px' }}>Cancel</button>
           </form>
         </div>
       )}
@@ -195,13 +248,15 @@ export default function Students({ students = [], onSave, onLogPayment }) {
                 {((students.find(s => s.id === viewHistoryId))?.payments || []).length === 0 ? (
                   <tr><td colSpan="3" style={{ textAlign: 'center', color: 'var(--muted)' }}>No historical payment records found for this student.</td></tr>
                 ) : (
-                  (students.find(s => s.id === viewHistoryId)).payments.map(p => (
-                    <tr key={p.id}>
-                      <td className="mono" style={{ fontSize: '12px' }}>{p.id}</td>
-                      <td className="mono">{p.date}</td>
-                      <td className="text-success mono">{fmtZAR(p.amount)}</td>
-                    </tr>
-                  ))
+                  [...(students.find(s => s.id === viewHistoryId)).payments]
+                    .sort((a, b) => new Date(b.date) - new Date(a.date))
+                    .map(p => (
+                      <tr key={p.id}>
+                        <td className="mono" style={{ fontSize: '12px' }}>{p.id}</td>
+                        <td className="mono">{p.date}</td>
+                        <td className="text-success mono">{fmtZAR(p.amount)}</td>
+                      </tr>
+                    ))
                 )}
               </tbody>
             </table>
@@ -209,8 +264,8 @@ export default function Students({ students = [], onSave, onLogPayment }) {
         </div>
       )}
 
-      {/* Roster Data Table */}
-      {(students || []).length === 0 ? (
+      {/* Active Roster Data Table Grid */}
+      {activeRoster.length === 0 ? (
         <div className="fceo-card">
           <p className="fceo-muted">No students registered yet. Click the "Add New Student" button above to provision your first profile.</p>
         </div>
@@ -227,7 +282,7 @@ export default function Students({ students = [], onSave, onLogPayment }) {
               </tr>
             </thead>
             <tbody>
-              {students.map(s => (
+              {activeRoster.map(s => (
                 <tr key={s.id}>
                   <td>
                     <div><b>{s.fullName}</b></div>
@@ -253,13 +308,23 @@ export default function Students({ students = [], onSave, onLogPayment }) {
                     </div>
                   </td>
                   <td>
-                    <div style={{ display: 'flex', gap: '6px' }}>
-                      <button type="button" className="fceo-pill on" onClick={() => setActiveStudentId(s.id)}>
-                        ➕ Collect
-                      </button>
-                      <button type="button" className="fceo-pill muted" onClick={() => setViewHistoryId(s.id)}>
-                        📋 History ({s.payments?.length || 0})
-                      </button>
+                    <div style={{ display: 'flex', gap: '6px', flexDirection: 'column' }}>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button type="button" className="fceo-pill on" onClick={() => { setPaymentDate(new Date().toISOString().slice(0, 10)); setActiveStudentId(s.id); }}>
+                          ➕ Collect / Log Past
+                        </button>
+                        <button type="button" className="fceo-pill muted" onClick={() => setViewHistoryId(s.id)}>
+                          📋 History ({s.payments?.length || 0})
+                        </button>
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px' }}>
+                        <button type="button" className="fceo-pill muted" style={{ color: '#58a6ff', borderColor: '#30363d' }} onClick={() => startEdit(s)}>
+                          ✏️ Edit Profile
+                        </button>
+                        <button type="button" className="fceo-pill muted" style={{ color: '#ff7b72', borderColor: '#30363d' }} onClick={() => handleDelete(s.id, s.fullName)}>
+                          🗑️ Delete
+                        </button>
+                      </div>
                     </div>
                   </td>
                 </tr>
