@@ -74,7 +74,7 @@ export default function Journal({
       {/* Modern, clean embedded data entry table panel */}
       {showAddForm && (
         <div className="fceo-card" style={{ marginBottom: '24px', animation: 'fadeIn 0.2s ease-in-out' }}>
-          <h3>📋 Log New Execution Target parameters</h3>
+          <h3> Log New Execution Target parameters</h3>
           <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginTop: '16px', alignItems: 'end' }}>
             <label className="fceo-field">
               <span>Execution Date</span>

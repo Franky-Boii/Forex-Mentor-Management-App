@@ -49,7 +49,7 @@ export default function CRM({ leads = [], onSave, onDelete }) {
       {/* Embedded Lead Form Panel */}
       {showAddForm && (
         <div className="fceo-card" style={{ marginBottom: '24px', animation: 'fadeIn 0.2s ease-in-out' }}>
-          <h3>📋 Add Pipeline Prospect Entry</h3>
+          <h3> Add Pipeline Prospect Entry</h3>
           <form onSubmit={handleSubmit} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginTop: '16px', alignItems: 'end' }}>
             <label className="fceo-field">
               <span>Prospect Full Name</span>

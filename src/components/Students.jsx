@@ -209,9 +209,8 @@ export default function Students({ students = [], onSave, onLogPayment }) {
       {/* Flexible Payment Panel — Works for logging current collections OR backdating past historical payments */}
       {activeStudentId && (
         <div className="fceo-card" style={{ marginBottom: '24px', border: '1px solid #00e5a0' }}>
-          <h3>💰 Log Tuition Receipt (Current or Past Backdated History)</h3>
+          <h3> Log Tuition Receipt (Current or Past Backdated History)</h3>
           <p className="fceo-muted" style={{ fontSize: '13px', marginTop: '-8px' }}>
-            To add a past historical transaction manually, simply select the exact calendar day the payment was made below.
           </p>
           <form onSubmit={handlePaymentSubmit} style={{ display: 'flex', gap: '16px', marginTop: '16px', alignItems: 'end', flexWrap: 'wrap' }}>
             <label className="fceo-field" style={{ maxWidth: '200px' }}>
@@ -314,15 +313,15 @@ export default function Students({ students = [], onSave, onLogPayment }) {
                           ➕ Collect / Log Past
                         </button>
                         <button type="button" className="fceo-pill muted" onClick={() => setViewHistoryId(s.id)}>
-                          📋 History ({s.payments?.length || 0})
+                           History ({s.payments?.length || 0})
                         </button>
                       </div>
                       <div style={{ display: 'flex', gap: '6px' }}>
                         <button type="button" className="fceo-pill muted" style={{ color: '#58a6ff', borderColor: '#30363d' }} onClick={() => startEdit(s)}>
-                          ✏️ Edit Profile
+                          Edit Profile
                         </button>
                         <button type="button" className="fceo-pill muted" style={{ color: '#ff7b72', borderColor: '#30363d' }} onClick={() => handleDelete(s.id, s.fullName)}>
-                          🗑️ Delete
+                           Delete
                         </button>
                       </div>
                     </div>
