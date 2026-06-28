@@ -1,5 +1,5 @@
 import React from 'react';
-import { DAYS, HOURS, fmtDay, toISO, shiftWeek, parseISO, addDays } from '../utils/helpers';
+import { DAYS, HOURS, fmtDay, toISO, parseISO, addDays } from '../utils/helpers'; // Removed shiftWeek from here
 import { Icon, Field } from './Modals';
 
 export default function CalendarView({ sessionAt, slotOverrides, toggleSlot, slotKey, weekDates, calendarDate, setCalendarDate }) {

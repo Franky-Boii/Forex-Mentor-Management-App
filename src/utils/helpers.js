@@ -37,18 +37,19 @@ export const fmtDay = (dateObj) => dateObj.toLocaleDateString("en-ZA", { day: "2
 // Local Browser Storage Wrappers
 export async function loadKey(key, fallback) {
   try {
-    const res = await window.storage.get(key, false);
-    if (!res || res.value === undefined) return fallback;
-    return JSON.parse(res.value);
+    const res = localStorage.getItem(key);
+    if (!res) return fallback;
+    return JSON.parse(res);
   } catch (e) {
+    console.error("Storage read failed", key, e);
     return fallback;
   }
 }
 
 export async function saveKey(key, value) {
   try {
-    await window.storage.set(key, JSON.stringify(value), false);
+    localStorage.setItem(key, JSON.stringify(value));
   } catch (e) {
-    console.error("storage save failed", key, e);
+    console.error("Storage save failed", key, e);
   }
 }

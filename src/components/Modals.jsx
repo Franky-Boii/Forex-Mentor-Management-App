@@ -72,7 +72,7 @@ export function StudentModal({ initial, onClose, onSave, defaultTeamsLink }) {
               <button type="button" key={d} className={"fceo-day" + (form.days.includes(d) ? " active" : "")} onClick={() => toggleDay(d)}>{d}</button>
             ))}
           </div>
-        </label>
+        </Field>
         <div className="fceo-form-row">
           <Field label="Monthly fee (ZAR)"><input type="number" min="0" step="0.01" value={form.monthlyFee} onChange={(e) => setForm({ ...form, monthlyFee: e.target.value })} /></Field>
           <Field label="Status">
