@@ -6,6 +6,11 @@ export default function Header({ tab, setTab, winRate, income, todaysCount }) {
     ["dashboard", "Dashboard"], ["students", "Students"], ["calendar", "Calendar"],
     ["crm", "Pipeline"], ["journal", "Journal"], ["income", "Income"], ["settings", "Settings"],
   ];
+  
+  const validWinRate = winRate ?? 0;
+  const safeIncome = income ?? 0;
+  const safeSessionsCount = todaysCount ?? 0;
+
   return (
     <header className="fceo-header">
       <div className="fceo-brand">
@@ -17,17 +22,27 @@ export default function Header({ tab, setTab, winRate, income, todaysCount }) {
       </div>
       <div className="fceo-ticker">
         <div className="fceo-ticker-track">
-          <span>WIN RATE&nbsp;<b className={winRate >= 50 ? "up" : "down"}>{winRate === null ? "—" : winRate.toFixed(1) + "%"}</b></span>
-          <span>EXPECTED MONTHLY INCOME&nbsp;<b className="up">{fmtZAR(income)}</b></span>
-          <span>SESSIONS TODAY&nbsp;<b>{todaysCount}</b></span>
-          <span>WIN RATE&nbsp;<b className={winRate >= 50 ? "up" : "down"}>{winRate === null ? "—" : winRate.toFixed(1) + "%"}</b></span>
-          <span>EXPECTED MONTHLY INCOME&nbsp;<b className="up">{fmtZAR(income)}</b></span>
-          <span>SESSIONS TODAY&nbsp;<b>{todaysCount}</b></span>
+          <span>WIN RATE&nbsp;<b className={validWinRate >= 50 ? "up" : "down"}>{winRate === null || winRate === undefined ? "—" : validWinRate.toFixed(1) + "%"}</b></span>
+          <span>EXPECTED MONTHLY INCOME&nbsp;<b className="up">{fmtZAR(safeIncome)}</b></span>
+          <span>SESSIONS TODAY&nbsp;<b>{safeSessionsCount}</b></span>
+          <span>WIN RATE&nbsp;<b className={validWinRate >= 50 ? "up" : "down"}>{winRate === null || winRate === undefined ? "—" : validWinRate.toFixed(1) + "%"}</b></span>
+          <span>EXPECTED MONTHLY INCOME&nbsp;<b className="up">{fmtZAR(safeIncome)}</b></span>
+          <span>SESSIONS TODAY&nbsp;<b>{safeSessionsCount}</b></span>
         </div>
       </div>
       <nav className="fceo-nav">
         {tabs.map(([k, label]) => (
-          <button key={k} className={"fceo-navbtn" + (tab === k ? " active" : "")} onClick={() => setTab(k)}>{label}</button>
+          <button 
+            key={k} 
+            type="button" // Force browser to treat as an isolated script trigger
+            className={"fceo-navbtn" + (tab === k ? " active" : "")} 
+            onClick={(e) => {
+              e.preventDefault(); // Stop any native event bubbling or form reloads
+              setTab(k);
+            }}
+          >
+            {label}
+          </button>
         ))}
       </nav>
     </header>

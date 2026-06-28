@@ -110,3 +110,129 @@
 .fceo-filters{display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); flex-wrap:wrap;}
 .fceo-filters input{background:var(--panel2); border:1px solid var(--line); color:var(--text); border-radius:6px; padding:5px 8px; font-size:12px;}
 .fceo-paylog{margin-top:14px; border-top:1px solid var(--line); padding-top:10px;}
+
+/* ==========================================================================
+   💼 PREMIUM CORE GATEWAY AUTHENTICATION PANELS
+   ========================================================================== */
+
+.fceo-dark-theme-wrapper {
+  background-color: #0d1117;
+  color: #c9d1d9;
+  min-height: 100vh;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+.fceo-auth-backdrop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  background: radial-gradient(circle at top right, #161b22 0%, #0d1117 70%);
+  padding: 20px;
+}
+
+.fceo-auth-card {
+  background-color: #161b22;
+  border: 1px solid #21262d;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 400px;
+  padding: 40px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.fceo-auth-card h2 {
+  font-size: 28px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.5px;
+}
+
+.fceo-auth-card .fceo-muted {
+  color: #8b949e;
+  font-size: 14px;
+  margin-top: -12px;
+  margin-bottom: 8px;
+}
+
+.fceo-auth-error {
+  background-color: rgba(248, 81, 73, 0.1);
+  color: #ff7b72;
+  border: 1px solid rgba(248, 81, 73, 0.2);
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.fceo-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.fceo-field span {
+  color: #c9d1d9;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.fceo-field input {
+  background-color: #0d1117;
+  border: 1px solid #30363d;
+  color: #f0f6fc;
+  padding: 12px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.fceo-field input:focus {
+  outline: none;
+  border-color: #58a6ff;
+  box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.15);
+}
+
+.unified-auth-btn {
+  background-color: #238636;
+  color: #ffffff;
+  border: 1px solid rgba(240, 246, 252, 0.1);
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-top: 10px;
+}
+
+.unified-auth-btn:hover {
+  background-color: #2ea043;
+}
+
+.fceo-auth-toggle {
+  text-align: center;
+  margin-top: 12px;
+}
+
+.fceo-auth-toggle button {
+  background: none;
+  border: none;
+  color: #58a6ff;
+  font-size: 13px;
+  cursor: pointer;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.fceo-auth-toggle button:hover {
+  color: #2f81f7;
+  text-decoration: underline;
+}
